@@ -37,7 +37,7 @@ class OpenApiDocumentationTests {
     assertThat(JsonPath.<String>read(response.body(), "$.info.title")).isEqualTo("FinSim API");
     assertThat(JsonPath.<String>read(response.body(), "$.info.version")).isEqualTo("v1");
     assertThat(
-            JsonPath.<String>read(
+            JsonPath.<Object>read(
                 response.body(), "$.paths['/api/v1/networks/{networkId}/transfers']"))
         .isNotNull();
   }
