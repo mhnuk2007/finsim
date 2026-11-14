@@ -48,7 +48,9 @@ On startup, Flyway automatically runs database migrations (`V1__baseline.sql`, `
 
 ## 2. Start the Sample Banks
 
-FinSim includes an in-memory sample bank implementing the `finsim/v1` participant contract in `samples/bank-java`.
+FinSim includes independent in-memory sample banks implementing the `finsim/v1` participant contract in Java (`samples/bank-java`) and Python (`samples/bank-python`).
+
+### Option A: Java Sample Banks (Bank A & Bank B)
 
 In a new terminal, start **Bank A** on port 9001:
 
@@ -62,17 +64,33 @@ In another terminal, start **Bank B** on port 9002:
 ./gradlew :sample-bank-java:bootRun --args="--spring.profiles.active=bank-b"
 ```
 
+### Option B: Python (FastAPI) Sample Bank
+
+FinSim also provides a standalone Python participant bank on port 9003:
+
+```bash
+cd samples/bank-python
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python app.py              # starts on port 9003
+```
+
+### Verify Participant Endpoints
+
 Verify their participant contract endpoints:
 
 ```bash
 # Health & versioning
 curl http://localhost:9001/finsim/v1/institution/health
 curl http://localhost:9002/finsim/v1/institution/health
+curl http://localhost:9003/finsim/v1/institution/health
 
 # Capabilities
 curl http://localhost:9001/finsim/v1/institution/capabilities
+curl http://localhost:9003/finsim/v1/institution/capabilities
 
-# Inspect initial synthetic balances
+# Inspect initial synthetic balances (Java banks expose /sample/accounts)
 curl http://localhost:9001/sample/accounts
 curl http://localhost:9002/sample/accounts
 ```

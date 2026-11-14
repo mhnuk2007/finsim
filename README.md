@@ -47,7 +47,7 @@ See [docs/quickstart.md](docs/quickstart.md) for the full step-by-step walkthrou
 
 ### Try the running platform today
 
-You can run PostgreSQL, the FinSim API, the Java sample banks, and the CLI right now:
+You can run PostgreSQL, the FinSim API, the Java/Python sample banks, and the CLI right now:
 
 ```bash
 # 1. Start PostgreSQL 17
@@ -60,9 +60,11 @@ docker compose -f deploy/docker-compose.yml up -d
 ./gradlew :sample-bank-java:bootRun
 ./gradlew :sample-bank-java:bootRun --args="--spring.profiles.active=bank-b"
 
-# 4. Query seeded institutions and the sandbox network using the CLI
+# (Optional: or run the Python sample bank on port 9003 in samples/bank-python)
+
+# 4. Query seeded institutions and the sandbox network using the CLI (supports --json / -j)
 ./gradlew :finsim-cli:run --args="institutions"
-./gradlew :finsim-cli:run --args="networks --id sandbox"
+./gradlew :finsim-cli:run --args="networks --id sandbox --json"
 ```
 
 ### Target payments experience (Milestone 1)

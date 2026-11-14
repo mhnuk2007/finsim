@@ -113,20 +113,24 @@ Same behavior in Node/TypeScript, in a separate directory, no shared code.
 *Done when:* both banks pass the same verification and can transact with each other.
 *Issue:* [#11](https://github.com/mhnuk2007/finsim/issues/11)
 
-**21. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[partially-done]`
-Commands that wrap the network API with human-readable output.
-*Status:* Registry commands (`register`, `institutions`, `networks`, `join`) completed with client and JSON handling. Transfer, trace, and fault subcommands pending payment workflow API.
+**22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[partially-done]`
+Commands that wrap the network API with human-readable output and `--json` raw machine-readable flag support.
+*Status:* Registry commands (`register`, `institutions`, `networks`, `join`) completed with client and `--json` / `-j` flag handling (closed [#17](https://github.com/mhnuk2007/finsim/issues/17) in [#35](https://github.com/mhnuk2007/finsim/pull/35)). Transfer, trace, and fault subcommands pending payment workflow API.
 
-**22. CLI: `finsim verify --url`** `[milestone-1]`
+**23. CLI: `finsim verify --url`** `[milestone-1]`
 Check health, capabilities, debit and credit, idempotent replay, idempotency conflict, status query, and error shape. Actionable messages: which check failed, why, how to fix.
 *Done when:* both sample banks pass; a deliberately broken bank fails with clear messages.
 *Issue:* [#25](https://github.com/mhnuk2007/finsim/issues/25)
+
+**24. Local verification and pre-commit hooks** `[milestone-1]` `[done]`
+Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/verify.ps1`) and optional Spotless pre-commit hook (`.githooks/pre-commit`).
+*Status:* Completed by @Tanishsahu13 in [#38](https://github.com/mhnuk2007/finsim/pull/38). Closed [#20](https://github.com/mhnuk2007/finsim/issues/20).
 
 ---
 
 ## Web & Frontend
 
-**23. Next.js 16 web workspace scaffold, design system and base shell** `[milestone-1]` `[gfi]`
+**25. Next.js 16 web workspace scaffold, design system and base shell** `[milestone-1]` `[gfi]`
 Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript, Lucide icons, financial semantic color tokens, marketing layout shell (`/(marketing)`), simulation cockpit shell (`/(cockpit)`), and zero-backend mock fixtures.
 *Done when:* `npm run dev` and `npm run build` succeed, `/` renders the marketing shell, and `/app` renders the simulation cockpit shell.
 *Issue:* [#29](https://github.com/mhnuk2007/finsim/issues/29)
@@ -135,14 +139,14 @@ Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeS
 
 ## Release readiness
 
-**24. Docker Compose quickstart** `[milestone-1]` `[partially-done]`
+**26. Docker Compose quickstart** `[milestone-1]` `[partially-done]`
 `docker compose up` brings up FinSim, Postgres, both banks, and the seeded network.
 *Status:* PostgreSQL 17 compose definition active in `deploy/docker-compose.yml`. Containerization of FinSim API and sample banks pending final assembly.
 *Issue:* [#19](https://github.com/mhnuk2007/finsim/issues/19)
 
-**25. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
+**27. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
 Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, and `README.md` synchronized with the actual codebase capabilities.
 
-**26. Name and launch checks** `[milestone-1]` `[partially-done]`
+**28. Name and launch checks** `[milestone-1]` `[partially-done]`
 Name search, `SECURITY` contact, Code of Conduct file, issue and PR templates, 10 labeled good first issues.
 *Status:* 10 curated good first issues published on GitHub (#11 through #20) and documented in `docs/good-first-issues.md`. Issue and PR templates active. Maintainer governance checklist in progress.
