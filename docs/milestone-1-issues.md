@@ -149,4 +149,4 @@ Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contrac
 
 **28. Name and launch checks** `[milestone-1]` `[partially-done]`
 Name search, `SECURITY` contact, Code of Conduct file, issue and PR templates, 10 labeled good first issues.
-*Status:* 10 curated good first issues published on GitHub (#11 through #20) and documented in `docs/good-first-issues.md`. Issue and PR templates active. Maintainer governance checklist in progress.
+*Status:* 10 curated good first issues published on GitHub (#11 through #20) and documented in `docs/good-first-issues.md`. Issue and PR templates active. GitHub branch ruleset active on `main` enforcing required status checks (`build`, `lint-contract`) and blocking force pushes. Maintainer governance checklist in progress.
