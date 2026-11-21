@@ -2,12 +2,14 @@ package io.github.mhnuk2007.finsim.cli;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 import picocli.CommandLine.Spec;
 
 /** The {@code finsim} command line. */
@@ -25,6 +27,7 @@ import picocli.CommandLine.Spec;
       FinSimCli.Verify.class,
       FinSimCli.Transfer.class,
       FinSimCli.Trace.class,
+      FinSimCli.Resolve.class,
       FinSimCli.Fault.class
     })
 public class FinSimCli implements Runnable {
@@ -82,6 +85,9 @@ public class FinSimCli implements Runnable {
             .getErr()
             .println("FinSim answered HTTP " + response.status() + ": " + response.body());
         return EXIT_FAILED;
+      } catch (IllegalArgumentException e) {
+        spec.commandLine().getErr().println(e.getMessage());
+        return CommandLine.ExitCode.USAGE;
       } catch (IOException e) {
         spec.commandLine()
             .getErr()
@@ -240,11 +246,14 @@ public class FinSimCli implements Runnable {
   @Command(
       name = "verify",
       mixinStandardHelpOptions = true,
-      description = "Check an institution against the finsim/v1 contract.")
+      description = "Verify a participant's conformance to the finsim/v1 contract.")
   static class Verify implements Callable<Integer> {
     @Spec CommandSpec spec;
 
-    @Option(names = "--url", required = true, description = "Participant base URL.")
+    @Option(
+        names = "--url",
+        required = true,
+        description = "Participant base URL, for example http://localhost:9001.")
     String url;
 
     @Option(names = "--verbose", description = "Show sanitized HTTP exchanges.")
@@ -295,12 +304,113 @@ public class FinSimCli implements Runnable {
     }
   }
 
-  /** Placeholder: arrives with milestone 1, issue 19. */
   @Command(
       name = "transfer",
       mixinStandardHelpOptions = true,
-      description = "Start a transfer between two institutions.")
-  static class Transfer extends NotImplemented {}
+      description = "Start a payment transfer between two institutions.")
+  static class Transfer extends ApiCommand {
+    @Option(
+        names = {"--network", "-n"},
+        defaultValue = "sandbox",
+        description = "Network id. Default: ${DEFAULT-VALUE}")
+    String network;
+
+    @Option(
+        names = "--from",
+        required = true,
+        description =
+            "Debited party: <institution>:<account> or institution id (e.g. bank-a:ACC-1).")
+    String from;
+
+    @Option(
+        names = "--from-account",
+        description = "Debited account reference if --from is institution only.")
+    String fromAccount;
+
+    @Option(
+        names = "--to",
+        required = true,
+        description =
+            "Credited party: <institution>:<account> or institution id (e.g. bank-b:ACC-2).")
+    String to;
+
+    @Option(
+        names = "--to-account",
+        description = "Credited account reference if --to is institution only.")
+    String toAccount;
+
+    @Option(
+        names = {"--amount", "-a"},
+        required = true,
+        description = "Monetary amount (e.g. 100.00).")
+    String amount;
+
+    @Option(
+        names = {"--currency", "-c"},
+        defaultValue = "USD",
+        description = "Three-letter ISO currency code. Default: ${DEFAULT-VALUE}")
+    String currency;
+
+    @Option(
+        names = {"--reference", "-r"},
+        description = "Payment reference.")
+    String reference;
+
+    @Option(
+        names = "--idempotency-key",
+        description = "Unique idempotency key (defaults to generated UUID).")
+    String idempotencyKey;
+
+    @Override
+    FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+      String fromInst = from;
+      String fromAcc = fromAccount;
+      if (from != null && from.contains(":")) {
+        String[] parts = from.split(":", 2);
+        fromInst = parts[0];
+        if (fromAcc == null || fromAcc.isBlank()) {
+          fromAcc = parts[1];
+        }
+      }
+
+      String toInst = to;
+      String toAcc = toAccount;
+      if (to != null && to.contains(":")) {
+        String[] parts = to.split(":", 2);
+        toInst = parts[0];
+        if (toAcc == null || toAcc.isBlank()) {
+          toAcc = parts[1];
+        }
+      }
+
+      String key =
+          (idempotencyKey != null && !idempotencyKey.isBlank())
+              ? idempotencyKey
+              : UUID.randomUUID().toString();
+
+      StringBuilder sb = new StringBuilder();
+      sb.append("{")
+          .append("\"from\":{\"institutionId\":")
+          .append(Json.quote(fromInst))
+          .append(",\"accountReference\":")
+          .append(Json.quote(fromAcc != null ? fromAcc : ""))
+          .append("},\"to\":{\"institutionId\":")
+          .append(Json.quote(toInst))
+          .append(",\"accountReference\":")
+          .append(Json.quote(toAcc != null ? toAcc : ""))
+          .append("},\"money\":{\"amount\":")
+          .append(Json.quote(amount))
+          .append(",\"currency\":")
+          .append(Json.quote(currency != null ? currency : "USD"))
+          .append("}");
+      if (reference != null && !reference.isBlank()) {
+        sb.append(",\"reference\":").append(Json.quote(reference));
+      }
+      sb.append("}");
+
+      return client.post("/api/v1/networks/" + network + "/transfers", sb.toString(), key);
+    }
+  }
 
   @Command(
       name = "trace",
@@ -309,28 +419,153 @@ public class FinSimCli implements Runnable {
   static class Trace extends ApiCommand {
     @Option(
         names = {"--id", "-t"},
-        required = true,
         description = "Transfer transaction identifier.")
     String id;
 
+    @Parameters(
+        index = "0",
+        arity = "0..1",
+        description = "Transfer transaction identifier (positional).")
+    String positionalId;
+
     @Override
     FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
-      return client.get("/api/v1/transfers/" + id + "/trace");
+      String targetId = id != null ? id : positionalId;
+      if (targetId == null || targetId.isBlank()) {
+        throw new IllegalArgumentException(
+            "Transaction ID is required via --id or positional argument.");
+      }
+      return client.get("/api/v1/transfers/" + targetId + "/trace");
     }
   }
 
-  /** Placeholder: arrives with milestone 1, issue 19. */
+  @Command(
+      name = "resolve",
+      mixinStandardHelpOptions = true,
+      description = "Resolve an UNKNOWN transfer by querying leg statuses.")
+  static class Resolve extends ApiCommand {
+    @Option(
+        names = {"--id", "-t"},
+        description = "Transfer transaction identifier.")
+    String id;
+
+    @Parameters(
+        index = "0",
+        arity = "0..1",
+        description = "Transfer transaction identifier (positional).")
+    String positionalId;
+
+    @Override
+    FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+      String targetId = id != null ? id : positionalId;
+      if (targetId == null || targetId.isBlank()) {
+        throw new IllegalArgumentException(
+            "Transaction ID is required via --id or positional argument.");
+      }
+      return client.post("/api/v1/transfers/" + targetId + "/resolve");
+    }
+  }
+
   @Command(
       name = "fault",
       mixinStandardHelpOptions = true,
-      description = "Add or remove fault rules.")
-  static class Fault extends NotImplemented {}
-
-  abstract static class NotImplemented implements Callable<Integer> {
+      description = "Manage simulation fault injection rules.",
+      subcommands = {Fault.Add.class, Fault.ListCmd.class, Fault.Remove.class})
+  static class Fault implements Runnable {
     @Override
-    public Integer call() {
-      System.err.println("Not implemented yet. See docs/milestone-1-issues.md.");
-      return EXIT_NOT_IMPLEMENTED;
+    public void run() {
+      CommandLine.usage(this, System.out);
+    }
+
+    @Command(
+        name = "add",
+        mixinStandardHelpOptions = true,
+        description = "Add a fault injection rule (DELAY, TIMEOUT, DUPLICATE_DELIVERY).")
+    static class Add extends ApiCommand {
+      @Option(
+          names = "--target",
+          required = true,
+          description = "Target institution id (e.g. bank-b).")
+      String target;
+
+      @Option(
+          names = "--type",
+          required = true,
+          description = "Fault type: DELAY, TIMEOUT, DUPLICATE_DELIVERY.")
+      String type;
+
+      @Option(names = "--delay", description = "Milliseconds of delay for DELAY type.")
+      Integer delayMs;
+
+      @Option(
+          names = "--probability",
+          description = "Trigger probability between 0.0 and 1.0 (default 1.0).")
+      Double probability;
+
+      @Option(names = "--times", description = "Cap on number of times the fault triggers.")
+      Integer times;
+
+      @Option(names = "--seed", description = "PRNG seed for reproducible probabilistic faults.")
+      Long seed;
+
+      @Override
+      FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{")
+            .append("\"target\":")
+            .append(Json.quote(target))
+            .append(",\"type\":")
+            .append(Json.quote(type.toUpperCase()));
+        if (delayMs != null) {
+          sb.append(",\"delayMs\":").append(delayMs);
+        }
+        if (probability != null) {
+          sb.append(",\"probability\":").append(probability);
+        }
+        if (times != null) {
+          sb.append(",\"times\":").append(times);
+        }
+        if (seed != null) {
+          sb.append(",\"seed\":").append(seed);
+        }
+        sb.append("}");
+        return client.post("/api/v1/faults", sb.toString());
+      }
+    }
+
+    @Command(
+        name = "list",
+        aliases = {"ls"},
+        mixinStandardHelpOptions = true,
+        description = "List active fault rules.")
+    static class ListCmd extends ApiCommand {
+      @Override
+      FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+        return client.get("/api/v1/faults");
+      }
+    }
+
+    @Command(
+        name = "remove",
+        aliases = {"delete", "rm"},
+        mixinStandardHelpOptions = true,
+        description = "Remove a fault rule by id.")
+    static class Remove extends ApiCommand {
+      @Option(names = "--id", description = "Fault rule id.")
+      String id;
+
+      @Parameters(index = "0", arity = "0..1", description = "Fault rule id (positional).")
+      String positionalId;
+
+      @Override
+      FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+        String targetId = id != null ? id : positionalId;
+        if (targetId == null || targetId.isBlank()) {
+          throw new IllegalArgumentException(
+              "Fault rule ID is required via --id or positional argument.");
+        }
+        return client.delete("/api/v1/faults/" + targetId);
+      }
     }
   }
 }

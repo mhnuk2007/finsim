@@ -20,6 +20,7 @@ class FinSimCliTest {
   private final AtomicReference<String> lastMethod = new AtomicReference<>();
   private final AtomicReference<String> lastPath = new AtomicReference<>();
   private final AtomicReference<String> lastBody = new AtomicReference<>();
+  private final AtomicReference<String> lastIdempotencyKey = new AtomicReference<>();
 
   @AfterEach
   void stopServer() {
@@ -36,6 +37,7 @@ class FinSimCliTest {
         exchange -> {
           lastMethod.set(exchange.getRequestMethod());
           lastPath.set(exchange.getRequestURI().getPath());
+          lastIdempotencyKey.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
           lastBody.set(
               new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
@@ -77,6 +79,7 @@ class FinSimCliTest {
             "verify",
             "transfer",
             "trace",
+            "resolve",
             "fault")) {
       Result result = run(subcommand, "--help");
       assertThat(result.exit()).isZero();
@@ -291,5 +294,206 @@ class FinSimCliTest {
     assertThat(result.exit()).isZero();
     assertThat(lastMethod.get()).isEqualTo("GET");
     assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-456/trace");
+  }
+
+  @Test
+  void traceCommandAcceptsPositionalTransactionId() throws Exception {
+    String body = "{\"transactionId\":\"tx-789\",\"events\":[]}";
+    String url = stubFinSim(200, body);
+
+    Result result = run("trace", "tx-789", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("GET");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-789/trace");
+  }
+
+  @Test
+  void traceCommandRequiresTransactionId() {
+    Result result = run("trace");
+
+    assertThat(result.exit()).isEqualTo(CommandLine.ExitCode.USAGE);
+    assertThat(result.err()).contains("Transaction ID is required");
+  }
+
+  @Test
+  void transferCommandDispatchesPostWithParsedParties() throws Exception {
+    String body = "{\"transactionId\":\"tx-001\",\"state\":\"COMPLETED\"}";
+    String url = stubFinSim(200, body);
+
+    Result result =
+        run(
+            "transfer",
+            "--finsim",
+            url,
+            "--network",
+            "sandbox",
+            "--from",
+            "bank-a:ACC-1",
+            "--to",
+            "bank-b:ACC-2",
+            "--amount",
+            "100.00",
+            "--currency",
+            "USD",
+            "--reference",
+            "DEMO-001",
+            "--idempotency-key",
+            "custom-key-123");
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("POST");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/networks/sandbox/transfers");
+    assertThat(lastIdempotencyKey.get()).isEqualTo("custom-key-123");
+    assertThat(lastBody.get())
+        .contains("\"from\":{\"institutionId\":\"bank-a\",\"accountReference\":\"ACC-1\"}")
+        .contains("\"to\":{\"institutionId\":\"bank-b\",\"accountReference\":\"ACC-2\"}")
+        .contains("\"money\":{\"amount\":\"100.00\",\"currency\":\"USD\"}")
+        .contains("\"reference\":\"DEMO-001\"");
+    assertThat(result.out().strip()).isEqualTo(body);
+  }
+
+  @Test
+  void transferCommandAllowsSeparateAccountFlags() throws Exception {
+    String body = "{\"transactionId\":\"tx-002\",\"state\":\"COMPLETED\"}";
+    String url = stubFinSim(200, body);
+
+    Result result =
+        run(
+            "transfer",
+            "--finsim",
+            url,
+            "--from",
+            "bank-a",
+            "--from-account",
+            "ACC-1",
+            "--to",
+            "bank-b",
+            "--to-account",
+            "ACC-2",
+            "--amount",
+            "50.00");
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("POST");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/networks/sandbox/transfers");
+    assertThat(lastIdempotencyKey.get()).isNotBlank();
+    assertThat(lastBody.get())
+        .contains("\"from\":{\"institutionId\":\"bank-a\",\"accountReference\":\"ACC-1\"}")
+        .contains("\"to\":{\"institutionId\":\"bank-b\",\"accountReference\":\"ACC-2\"}")
+        .contains("\"money\":{\"amount\":\"50.00\",\"currency\":\"USD\"}");
+  }
+
+  @Test
+  void resolveCommandDispatchesPostWithTransactionId() throws Exception {
+    String body = "{\"transactionId\":\"tx-rec-1\",\"state\":\"COMPLETED\"}";
+    String url = stubFinSim(200, body);
+
+    Result result = run("resolve", "--id", "tx-rec-1", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("POST");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-rec-1/resolve");
+    assertThat(result.out().strip()).isEqualTo(body);
+  }
+
+  @Test
+  void resolveCommandAcceptsPositionalTransactionId() throws Exception {
+    String body = "{\"transactionId\":\"tx-rec-2\",\"state\":\"REJECTED\"}";
+    String url = stubFinSim(200, body);
+
+    Result result = run("resolve", "tx-rec-2", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("POST");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-rec-2/resolve");
+  }
+
+  @Test
+  void resolveCommandRequiresTransactionId() {
+    Result result = run("resolve");
+
+    assertThat(result.exit()).isEqualTo(CommandLine.ExitCode.USAGE);
+    assertThat(result.err()).contains("Transaction ID is required");
+  }
+
+  @Test
+  void faultAddDispatchesPostWithAllConfiguredFields() throws Exception {
+    String body = "{\"faultId\":\"f-1\",\"target\":\"bank-b\",\"type\":\"DELAY\"}";
+    String url = stubFinSim(201, body);
+
+    Result result =
+        run(
+            "fault",
+            "add",
+            "--finsim",
+            url,
+            "--target",
+            "bank-b",
+            "--type",
+            "DELAY",
+            "--delay",
+            "500",
+            "--probability",
+            "0.8",
+            "--times",
+            "3",
+            "--seed",
+            "42");
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("POST");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/faults");
+    assertThat(lastBody.get())
+        .contains("\"target\":\"bank-b\"")
+        .contains("\"type\":\"DELAY\"")
+        .contains("\"delayMs\":500")
+        .contains("\"probability\":0.8")
+        .contains("\"times\":3")
+        .contains("\"seed\":42");
+    assertThat(result.out().strip()).isEqualTo(body);
+  }
+
+  @Test
+  void faultListDispatchesGetToFaults() throws Exception {
+    String body = "[{\"faultId\":\"f-1\"}]";
+    String url = stubFinSim(200, body);
+
+    Result result = run("fault", "list", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("GET");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/faults");
+    assertThat(result.out().strip()).isEqualTo(body);
+  }
+
+  @Test
+  void faultRemoveDispatchesDeleteById() throws Exception {
+    String url = stubFinSim(204, "");
+
+    Result result = run("fault", "remove", "--id", "f-123", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("DELETE");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/faults/f-123");
+  }
+
+  @Test
+  void faultRemoveAcceptsPositionalId() throws Exception {
+    String url = stubFinSim(204, "");
+
+    Result result = run("fault", "remove", "f-456", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("DELETE");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/faults/f-456");
+  }
+
+  @Test
+  void faultRemoveRequiresId() {
+    Result result = run("fault", "remove");
+
+    assertThat(result.exit()).isEqualTo(CommandLine.ExitCode.USAGE);
+    assertThat(result.err()).contains("Fault rule ID is required");
   }
 }

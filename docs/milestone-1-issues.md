@@ -112,9 +112,9 @@ FastAPI participant bank in `samples/bank-python` implementing the `finsim/v1` c
 Same behavior in Node/TypeScript, in a separate directory, no shared code.
 *Status:* Completed by @maestro-00 in [#41](https://github.com/mhnuk2007/finsim/pull/41). Closed [#11](https://github.com/mhnuk2007/finsim/issues/11).
 
-**22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[partially-done]`
+**22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[done]`
 Commands that wrap the network API with human-readable output and `--json` raw machine-readable flag support.
-*Status:* Registry commands (`register`, `institutions`, `networks`, `join`, `directory`) completed with client and `--json` / `-j` flag handling (closed [#17](https://github.com/mhnuk2007/finsim/issues/17) in [#35](https://github.com/mhnuk2007/finsim/pull/35), closed [#31](https://github.com/mhnuk2007/finsim/issues/31) in [#108](https://github.com/mhnuk2007/finsim/pull/108)). Standard `--help` and `-h` support active across subcommands (closed [#54](https://github.com/mhnuk2007/finsim/issues/54) in [#93](https://github.com/mhnuk2007/finsim/pull/93)). Trace command (`finsim trace --id <id>`) completed in [#110](https://github.com/mhnuk2007/finsim/pull/110) (closed [#23](https://github.com/mhnuk2007/finsim/issues/23)). Transfer and fault CLI subcommands pending.
+*Status:* Completed. Full suite of CLI commands implemented: `register`, `institutions`, `networks`, `join`, `directory`, `verify`, `transfer` (supporting `--from`, `--to`, `--amount`, `--currency`, `--reference`), `trace` (`finsim trace <id>`), `resolve` (`finsim resolve <id>`), and `fault` (`finsim fault add/list/remove`), with `--json` / `-j` and `-h` / `--help` flags across all commands.
 
 **23. CLI: `finsim verify --url`** `[milestone-1]` `[done]`
 Check health, capabilities, debit and credit, idempotent replay, idempotency conflict, status query, and error shape. Actionable messages: which check failed, why, how to fix.

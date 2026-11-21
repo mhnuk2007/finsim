@@ -46,12 +46,38 @@ final class FinSimClient {
   }
 
   Response post(String path, String json) throws IOException, InterruptedException {
-    HttpRequest request =
+    return post(path, json, null);
+  }
+
+  Response post(String path, String json, String idempotencyKey)
+      throws IOException, InterruptedException {
+    HttpRequest.Builder builder =
         HttpRequest.newBuilder(resolveUri(path))
             .timeout(Duration.ofSeconds(10))
             .header("Content-Type", "application/json")
+            .header("Accept", "application/json");
+
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      builder.header("Idempotency-Key", idempotencyKey);
+    }
+
+    HttpRequest request =
+        builder
+            .POST(json != null ? BodyPublishers.ofString(json) : BodyPublishers.noBody())
+            .build();
+    return send(request);
+  }
+
+  Response post(String path) throws IOException, InterruptedException {
+    return post(path, null, null);
+  }
+
+  Response delete(String path) throws IOException, InterruptedException {
+    HttpRequest request =
+        HttpRequest.newBuilder(resolveUri(path))
+            .timeout(Duration.ofSeconds(10))
             .header("Accept", "application/json")
-            .POST(BodyPublishers.ofString(json))
+            .DELETE()
             .build();
     return send(request);
   }
