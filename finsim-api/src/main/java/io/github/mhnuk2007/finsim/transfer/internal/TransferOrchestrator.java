@@ -5,7 +5,6 @@ import io.github.mhnuk2007.finsim.core.Emitter;
 import io.github.mhnuk2007.finsim.core.Money;
 import io.github.mhnuk2007.finsim.core.PendingAction;
 import io.github.mhnuk2007.finsim.core.ReasonCode;
-import io.github.mhnuk2007.finsim.core.StageEntry;
 import io.github.mhnuk2007.finsim.core.Transfer;
 import io.github.mhnuk2007.finsim.faults.FaultService;
 import io.github.mhnuk2007.finsim.registry.Capability;
@@ -23,15 +22,13 @@ import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.PaymentCal
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 public class TransferOrchestrator {
 
   private final Registry registry;
   private final ParticipantClient participantClient;
-  private final TransferRepository transferRepository;
-  private final TransferStageRepository stageRepository;
+  private final TransferPersistenceHelper persistenceHelper;
   private final FaultService faultService;
   private final Clock clock;
 
@@ -39,16 +36,37 @@ public class TransferOrchestrator {
   public TransferOrchestrator(
       Registry registry,
       ParticipantClient participantClient,
-      TransferRepository transferRepository,
-      TransferStageRepository stageRepository,
+      TransferPersistenceHelper persistenceHelper,
       FaultService faultService,
       Clock clock) {
     this.registry = registry;
     this.participantClient = participantClient;
-    this.transferRepository = transferRepository;
-    this.stageRepository = stageRepository;
+    this.persistenceHelper = persistenceHelper;
     this.faultService = faultService;
     this.clock = clock;
+  }
+
+  public TransferOrchestrator(
+      Registry registry,
+      ParticipantClient participantClient,
+      TransferPersistenceHelper persistenceHelper,
+      Clock clock) {
+    this(registry, participantClient, persistenceHelper, null, clock);
+  }
+
+  public TransferOrchestrator(
+      Registry registry,
+      ParticipantClient participantClient,
+      TransferRepository transferRepository,
+      TransferStageRepository stageRepository,
+      FaultService faultService,
+      Clock clock) {
+    this(
+        registry,
+        participantClient,
+        new TransferPersistenceHelper(transferRepository, stageRepository),
+        faultService,
+        clock);
   }
 
   public TransferOrchestrator(
@@ -57,7 +75,12 @@ public class TransferOrchestrator {
       TransferRepository transferRepository,
       TransferStageRepository stageRepository,
       Clock clock) {
-    this(registry, participantClient, transferRepository, stageRepository, null, clock);
+    this(
+        registry,
+        participantClient,
+        new TransferPersistenceHelper(transferRepository, stageRepository),
+        null,
+        clock);
   }
 
   public Transfer orchestrate(
@@ -493,34 +516,7 @@ public class TransferOrchestrator {
     return transfer;
   }
 
-  @Transactional
   public void persistTransfer(Transfer transfer) {
-    TransferEntity entity =
-        transferRepository
-            .findById(transfer.getId())
-            .map(
-                existing -> {
-                  existing.updateFrom(transfer);
-                  return existing;
-                })
-            .orElseGet(() -> TransferEntity.from(transfer));
-
-    transferRepository.save(entity);
-
-    // Save any newly appended stages
-    long existingCount = stageRepository.findByTransferIdOrderByIdAsc(transfer.getId()).size();
-    if (transfer.getStageHistory().size() > existingCount) {
-      for (int i = (int) existingCount; i < transfer.getStageHistory().size(); i++) {
-        StageEntry entry = transfer.getStageHistory().get(i);
-        TransferStageEntity stageEntity =
-            TransferStageEntity.of(
-                transfer.getId(),
-                entry.stage(),
-                entry.outcome().name(),
-                entry.details(),
-                entry.at());
-        stageRepository.save(stageEntity);
-      }
-    }
+    persistenceHelper.persistTransfer(transfer);
   }
 }
