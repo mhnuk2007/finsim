@@ -71,7 +71,7 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 
 | Issue | Area | Description |
 |---|---|---|
-| **[#19](https://github.com/mhnuk2007/finsim/issues/19)** | DevOps / Compose | **Dockerfiles and full Docker Compose stack**: Multi-stage Docker builds for `finsim-api` and `samples/bank-java` (`bank-a` and `bank-b`), enabling `docker compose up --build` with no local Java installation needed. |
+| **[#19](https://github.com/mhnuk2007/finsim/issues/19)** *(Closed)* | DevOps / Compose | ~~**Dockerfiles and full Docker Compose stack**~~: Multi-stage Docker builds for `finsim-api` and `samples/bank-java` (`bank-a` and `bank-b`), enabling `docker compose up --build` with no local Java installation needed. |
 | **[#20](https://github.com/mhnuk2007/finsim/issues/20)** *(Closed)* | Tooling / Git | ~~**Pre-commit and commit-msg hooks with verify script**~~ *(Completed by @Tanishsahu13 in [#38](https://github.com/mhnuk2007/finsim/pull/38))*: Added cross-platform `scripts/verify.sh`, `scripts/verify.ps1`, and optional `.githooks/pre-commit`. |
 
 ---

@@ -15,7 +15,64 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 5s
+
+  bank-a:
+    build:
+      context: ..
+      dockerfile: samples/bank-java/Dockerfile
+    container_name: finsim-bank-a
+    ports:
+      - "9001:9001"
+    environment:
+      SERVER_PORT: 9001
+      SPRING_PROFILES_ACTIVE: default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9001/finsim/v1/institution/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  bank-b:
+    build:
+      context: ..
+      dockerfile: samples/bank-java/Dockerfile
+    container_name: finsim-bank-b
+    ports:
+      - "9002:9002"
+    environment:
+      SERVER_PORT: 9002
+      SPRING_PROFILES_ACTIVE: bank-b
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9002/finsim/v1/institution/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+  finsim-api:
+    build:
+      context: ..
+      dockerfile: finsim-api/Dockerfile
+    container_name: finsim-api
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bank-a:
+        condition: service_healthy
+      bank-b:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   pgdata:
-

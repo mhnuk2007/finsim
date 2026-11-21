@@ -36,11 +36,11 @@ finsim:
         - id: bank-a
           name: Bank A (sample, Java)
           type: BANK
-          base-url: http://localhost:9001
+          base-url: ${FINSIM_BANK_A_URL:http://localhost:9001}
           capabilities: [ACCOUNT_DEBIT, ACCOUNT_CREDIT, STATUS_QUERY]
         - id: bank-b
           name: Bank B (sample, Java)
           type: BANK
-          base-url: http://localhost:9002
+          base-url: ${FINSIM_BANK_B_URL:http://localhost:9002}
           capabilities: [ACCOUNT_DEBIT, ACCOUNT_CREDIT, STATUS_QUERY]
 

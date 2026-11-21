@@ -16,21 +16,47 @@
 
 ---
 
-## 1. Start the Database and FinSim API
+## 1. Start the System
 
-FinSim connects to a PostgreSQL 17 database. You can start the database using Docker Compose or let Testcontainers manage an ephemeral container automatically.
+You can run FinSim either as a full containerized multi-service stack using Docker Compose, or locally via Gradle.
 
-### Option A: Using Docker Compose (Standard)
+### Option A: Full Multi-Container Stack (Recommended — Zero Local Setup)
+
+To bring up the entire platform — PostgreSQL 17, FinSim API, Bank A, and Bank B — with a single command:
+
+```bash
+docker compose up -d
+# or: docker compose -f deploy/docker-compose.yml up -d
+```
+
+This orchestrates:
+- **`postgres`** (PostgreSQL 17, host port `5433`, internal port `5432`)
+- **`bank-a`** (Sample Bank A in Java, port `9001`)
+- **`bank-b`** (Sample Bank B in Java, port `9002`)
+- **`finsim-api`** (FinSim Platform API, port `8080`, with database and seed endpoints configured)
+
+Verify the stack health:
+```bash
+docker compose ps
+# Verify individual services:
+curl http://localhost:8080/actuator/health
+curl http://localhost:9001/finsim/v1/institution/health
+curl http://localhost:9002/finsim/v1/institution/health
+```
+
+### Option B: Local Gradle Development (Database in Docker)
+
+If developing locally:
 
 ```bash
 # 1. Start PostgreSQL 17 container on port 5433
-docker compose -f deploy/docker-compose.yml up -d
+docker compose up -d postgres
 
 # 2. Start the FinSim API (runs on http://localhost:8080)
 ./gradlew :finsim-api:bootRun
 ```
 
-### Option B: Using Testcontainers (No pre-existing DB needed)
+### Option C: Using Testcontainers (No pre-existing DB needed)
 
 ```bash
 # Starts FinSim API attached to an ephemeral Testcontainers PostgreSQL 17 container
@@ -44,7 +70,7 @@ curl http://localhost:8080/actuator/health
 # {"status":"UP"}
 ```
 
-On startup, Flyway automatically runs database migrations (`V1__baseline.sql`, `V2__registry.sql`, `V3__widen_transfer_amount_scale.sql`, `V4__add_fault_rule_seed.sql`), creates the `sandbox` network (USD), and seeds member institutions `bank-a` (`http://localhost:9001`) and `bank-b` (`http://localhost:9002`).
+On startup, Flyway automatically runs database migrations (`V1__baseline.sql`, `V2__registry.sql`, `V3__widen_transfer_amount_scale.sql`, `V4__add_fault_rule_seed.sql`, `V5__add_transfer_trace_events.sql`), creates the `sandbox` network (USD), and seeds member institutions `bank-a` and `bank-b`.
 
 ---
 

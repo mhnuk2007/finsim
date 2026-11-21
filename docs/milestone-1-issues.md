@@ -137,9 +137,9 @@ Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeS
 
 ## Release readiness
 
-**26. Docker Compose quickstart** `[milestone-1]` `[partially-done]`
+**26. Docker Compose quickstart** `[milestone-1]` `[done]`
 `docker compose up` brings up FinSim, Postgres, both banks, and the seeded network.
-*Status:* PostgreSQL 17 compose definition active in `deploy/docker-compose.yml`. Containerization of FinSim API and sample banks pending final assembly.
+*Status:* Completed in [#19](https://github.com/mhnuk2007/finsim/issues/19). Multi-stage Dockerfiles for `finsim-api` and `samples/bank-java` (`bank-a` and `bank-b`), root `docker-compose.yml` and `deploy/docker-compose.yml` orchestrating PostgreSQL 17, `finsim-api` (8080), `bank-a` (9001), and `bank-b` (9002), with `docker` Spring profile and healthchecks.
 *Issue:* [#19](https://github.com/mhnuk2007/finsim/issues/19)
 
 **27. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`

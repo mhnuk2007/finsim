@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/finsim
+    username: finsim
+    password: finsim
+
+finsim:
+  registry:
+    seed:
+      institutions:
+        - id: bank-a
+          name: Bank A (sample, Java)
+          type: BANK
+          base-url: http://bank-a:9001
+          capabilities: [ACCOUNT_DEBIT, ACCOUNT_CREDIT, STATUS_QUERY]
+        - id: bank-b
+          name: Bank B (sample, Java)
+          type: BANK
+          base-url: http://bank-b:9002
+          capabilities: [ACCOUNT_DEBIT, ACCOUNT_CREDIT, STATUS_QUERY]
