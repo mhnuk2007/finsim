@@ -5,7 +5,9 @@ import io.github.mhnuk2007.finsim.core.Emitter;
 import io.github.mhnuk2007.finsim.core.Money;
 import io.github.mhnuk2007.finsim.core.PendingAction;
 import io.github.mhnuk2007.finsim.core.ReasonCode;
+import io.github.mhnuk2007.finsim.core.StageOutcome;
 import io.github.mhnuk2007.finsim.core.Transfer;
+import io.github.mhnuk2007.finsim.core.TransferState;
 import io.github.mhnuk2007.finsim.faults.FaultService;
 import io.github.mhnuk2007.finsim.registry.Capability;
 import io.github.mhnuk2007.finsim.registry.Institution;
@@ -20,6 +22,9 @@ import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.LegRequest
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.MoneyPayload;
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.PaymentCallOutcome;
 import java.time.Clock;
+import java.time.Instant;
+import java.util.Map;
+import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -29,6 +34,7 @@ public class TransferOrchestrator {
   private final Registry registry;
   private final ParticipantClient participantClient;
   private final TransferPersistenceHelper persistenceHelper;
+  private final TransferTraceRecorder traceRecorder;
   private final FaultService faultService;
   private final Clock clock;
 
@@ -37,11 +43,13 @@ public class TransferOrchestrator {
       Registry registry,
       ParticipantClient participantClient,
       TransferPersistenceHelper persistenceHelper,
+      TransferTraceRecorder traceRecorder,
       FaultService faultService,
       Clock clock) {
     this.registry = registry;
     this.participantClient = participantClient;
     this.persistenceHelper = persistenceHelper;
+    this.traceRecorder = traceRecorder;
     this.faultService = faultService;
     this.clock = clock;
   }
@@ -50,8 +58,17 @@ public class TransferOrchestrator {
       Registry registry,
       ParticipantClient participantClient,
       TransferPersistenceHelper persistenceHelper,
+      FaultService faultService,
       Clock clock) {
-    this(registry, participantClient, persistenceHelper, null, clock);
+    this(registry, participantClient, persistenceHelper, null, faultService, clock);
+  }
+
+  public TransferOrchestrator(
+      Registry registry,
+      ParticipantClient participantClient,
+      TransferPersistenceHelper persistenceHelper,
+      Clock clock) {
+    this(registry, participantClient, persistenceHelper, null, null, clock);
   }
 
   public TransferOrchestrator(
@@ -65,6 +82,7 @@ public class TransferOrchestrator {
         registry,
         participantClient,
         new TransferPersistenceHelper(transferRepository, stageRepository),
+        null,
         faultService,
         clock);
   }
@@ -79,6 +97,7 @@ public class TransferOrchestrator {
         registry,
         participantClient,
         new TransferPersistenceHelper(transferRepository, stageRepository),
+        null,
         null,
         clock);
   }
@@ -144,20 +163,32 @@ public class TransferOrchestrator {
     }
 
     // 2. Initialize Transfer aggregate in CREATED state, transition to ACCEPTED, then IN_PROGRESS
+    Instant now = clock.instant();
     Transfer transfer =
         Transfer.create(
-            transactionId,
-            networkId,
-            idempotencyKey,
-            from,
-            to,
-            money,
-            request.reference(),
-            clock.instant());
-
+            transactionId, networkId, idempotencyKey, from, to, money, request.reference(), now);
     transfer.accept("accepted", clock.instant());
     transfer.startProcessing("debit_source", clock.instant());
     persistTransfer(transfer);
+
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transactionId, "created", now);
+      traceRecorder.recordStateChange(transactionId, "created", null, TransferState.CREATED, now);
+      traceRecorder.recordStage(transactionId, "accepted", clock.instant());
+      traceRecorder.recordStateChange(
+          transactionId,
+          "accepted",
+          TransferState.CREATED,
+          TransferState.ACCEPTED,
+          clock.instant());
+      traceRecorder.recordStage(transactionId, "debit_source", clock.instant());
+      traceRecorder.recordStateChange(
+          transactionId,
+          "debit_source",
+          TransferState.ACCEPTED,
+          TransferState.IN_PROGRESS,
+          clock.instant());
+    }
 
     // 3. Execute Step 1: Outbound DEBIT to source institution
     String debitKey = transactionId + "-debit";
@@ -172,7 +203,13 @@ public class TransferOrchestrator {
             "SYNTHETIC");
 
     PaymentCallOutcome debitOutcome =
-        sendLeg(fromInst.id(), fromInst.baseUrl(), debitKey, debitPayload);
+        sendLeg(
+            transactionId,
+            "debit_source",
+            fromInst.id(),
+            fromInst.baseUrl(),
+            debitKey,
+            debitPayload);
 
     switch (debitOutcome.status()) {
       case REJECTED -> {
@@ -182,6 +219,14 @@ public class TransferOrchestrator {
             Emitter.SOURCE,
             debitOutcome.errorMessage(),
             clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transactionId,
+              "debit_source",
+              TransferState.IN_PROGRESS,
+              TransferState.REJECTED,
+              clock.instant());
+        }
         persistTransfer(transfer);
         return transfer;
       }
@@ -192,6 +237,14 @@ public class TransferOrchestrator {
             false,
             debitOutcome.errorMessage(),
             clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transactionId,
+              "debit_source",
+              TransferState.IN_PROGRESS,
+              TransferState.UNKNOWN,
+              clock.instant());
+        }
         persistTransfer(transfer);
         return transfer;
       }
@@ -201,6 +254,9 @@ public class TransferOrchestrator {
     }
 
     // 4. Execute Step 2: Outbound CREDIT to destination institution
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transactionId, "credit_destination", clock.instant());
+    }
     String creditKey = transactionId + "-credit";
     LegRequestPayload creditPayload =
         new LegRequestPayload(
@@ -213,18 +269,43 @@ public class TransferOrchestrator {
             "SYNTHETIC");
 
     PaymentCallOutcome creditOutcome =
-        sendLeg(toInst.id(), toInst.baseUrl(), creditKey, creditPayload);
+        sendLeg(
+            transactionId,
+            "credit_destination",
+            toInst.id(),
+            toInst.baseUrl(),
+            creditKey,
+            creditPayload);
 
     switch (creditOutcome.status()) {
-      case COMPLETED -> transfer.complete("credit_destination", clock.instant());
-      case TIMED_OUT ->
-          // A timeout on credit moves the transfer to UNKNOWN (never REJECTED!)
-          transfer.markUnknown(
+      case COMPLETED -> {
+        transfer.complete("credit_destination", clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transactionId,
               "credit_destination",
-              PendingAction.RETRY_CREDIT,
-              false,
-              creditOutcome.errorMessage(),
+              TransferState.IN_PROGRESS,
+              TransferState.COMPLETED,
               clock.instant());
+        }
+      }
+      case TIMED_OUT -> {
+        // A timeout on credit moves the transfer to UNKNOWN (never REJECTED!)
+        transfer.markUnknown(
+            "credit_destination",
+            PendingAction.RETRY_CREDIT,
+            false,
+            creditOutcome.errorMessage(),
+            clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transactionId,
+              "credit_destination",
+              TransferState.IN_PROGRESS,
+              TransferState.UNKNOWN,
+              clock.instant());
+        }
+      }
       case REJECTED -> {
         // Destination definitively rejected credit after debit succeeded.
         // Move to UNKNOWN with REVERSE_DEBIT so compensating reversal can be safely executed.
@@ -234,6 +315,14 @@ public class TransferOrchestrator {
             false,
             creditOutcome.errorMessage(),
             clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transactionId,
+              "credit_destination",
+              TransferState.IN_PROGRESS,
+              TransferState.UNKNOWN,
+              clock.instant());
+        }
         persistTransfer(transfer);
         return executeReversal(transfer, fromInst, creditOutcome.reasonCode());
       }
@@ -244,7 +333,7 @@ public class TransferOrchestrator {
   }
 
   public Transfer resolve(Transfer transfer) {
-    if (transfer.getState() != io.github.mhnuk2007.finsim.core.TransferState.UNKNOWN) {
+    if (transfer.getState() != TransferState.UNKNOWN) {
       return transfer;
     }
 
@@ -256,7 +345,7 @@ public class TransferOrchestrator {
     } catch (Exception ex) {
       transfer.recordStage(
           "resolve",
-          io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+          StageOutcome.UNKNOWN,
           "Failed to look up institutions in registry: " + ex.getMessage(),
           clock.instant());
       persistTransfer(transfer);
@@ -264,14 +353,39 @@ public class TransferOrchestrator {
     }
 
     // 1. Query debit leg at source institution
-    java.util.Optional<ParticipantClient.LegResponsePayload> debitLegOpt;
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transfer.getId(), "query_debit", clock.instant());
+    }
+    long debitStart = System.currentTimeMillis();
+    Instant debitCallAt = clock.instant();
+    Optional<ParticipantClient.LegResponsePayload> debitLegOpt;
     try {
       debitLegOpt = participantClient.queryLegStatus(fromInst.baseUrl(), transfer.getId(), "DEBIT");
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_debit",
+            fromInst.id(),
+            Map.of("transactionId", transfer.getId(), "leg", "DEBIT"),
+            debitLegOpt.orElse(null),
+            System.currentTimeMillis() - debitStart,
+            debitCallAt);
+      }
     } catch (Exception ex) {
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_debit",
+            fromInst.id(),
+            Map.of("transactionId", transfer.getId(), "leg", "DEBIT"),
+            Map.of("error", ex.getMessage()),
+            System.currentTimeMillis() - debitStart,
+            debitCallAt);
+      }
       // Row 7: Query timed out or errored -> stays UNKNOWN
       transfer.recordStage(
           "query_debit",
-          io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+          StageOutcome.UNKNOWN,
           "Failed to query debit leg at source: " + ex.getMessage(),
           clock.instant());
       persistTransfer(transfer);
@@ -286,6 +400,15 @@ public class TransferOrchestrator {
           Emitter.FINSIM,
           "Debit leg was not found at source institution",
           clock.instant());
+      if (traceRecorder != null) {
+        traceRecorder.recordStage(transfer.getId(), "resolve", clock.instant());
+        traceRecorder.recordStateChange(
+            transfer.getId(),
+            "resolve",
+            TransferState.UNKNOWN,
+            TransferState.REJECTED,
+            clock.instant());
+      }
       persistTransfer(transfer);
       return transfer;
     }
@@ -304,6 +427,15 @@ public class TransferOrchestrator {
           Emitter.SOURCE,
           "Debit leg was rejected by source institution",
           clock.instant());
+      if (traceRecorder != null) {
+        traceRecorder.recordStage(transfer.getId(), "resolve", clock.instant());
+        traceRecorder.recordStateChange(
+            transfer.getId(),
+            "resolve",
+            TransferState.UNKNOWN,
+            TransferState.REJECTED,
+            clock.instant());
+      }
       persistTransfer(transfer);
       return transfer;
     }
@@ -312,7 +444,7 @@ public class TransferOrchestrator {
     if (!"COMPLETED".equalsIgnoreCase(debitLeg.status())) {
       transfer.recordStage(
           "query_debit",
-          io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+          StageOutcome.UNKNOWN,
           "Source reported debit status " + debitLeg.status(),
           clock.instant());
       persistTransfer(transfer);
@@ -320,14 +452,39 @@ public class TransferOrchestrator {
     }
 
     // 2. Debit is COMPLETED. Query credit leg at destination institution
-    java.util.Optional<ParticipantClient.LegResponsePayload> creditLegOpt;
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transfer.getId(), "query_credit", clock.instant());
+    }
+    long creditStart = System.currentTimeMillis();
+    Instant creditCallAt = clock.instant();
+    Optional<ParticipantClient.LegResponsePayload> creditLegOpt;
     try {
       creditLegOpt = participantClient.queryLegStatus(toInst.baseUrl(), transfer.getId(), "CREDIT");
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_credit",
+            toInst.id(),
+            Map.of("transactionId", transfer.getId(), "leg", "CREDIT"),
+            creditLegOpt.orElse(null),
+            System.currentTimeMillis() - creditStart,
+            creditCallAt);
+      }
     } catch (Exception ex) {
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_credit",
+            toInst.id(),
+            Map.of("transactionId", transfer.getId(), "leg", "CREDIT"),
+            Map.of("error", ex.getMessage()),
+            System.currentTimeMillis() - creditStart,
+            creditCallAt);
+      }
       // Row 7: Credit query timed out or errored -> stays UNKNOWN
       transfer.recordStage(
           "query_credit",
-          io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+          StageOutcome.UNKNOWN,
           "Failed to query credit leg at destination: " + ex.getMessage(),
           clock.instant());
       persistTransfer(transfer);
@@ -337,6 +494,15 @@ public class TransferOrchestrator {
     // Row 3: Destination credit is COMPLETED -> Both legs applied -> COMPLETED
     if (creditLegOpt.isPresent() && "COMPLETED".equalsIgnoreCase(creditLegOpt.get().status())) {
       transfer.complete("resolve", clock.instant());
+      if (traceRecorder != null) {
+        traceRecorder.recordStage(transfer.getId(), "resolve", clock.instant());
+        traceRecorder.recordStateChange(
+            transfer.getId(),
+            "resolve",
+            TransferState.UNKNOWN,
+            TransferState.COMPLETED,
+            clock.instant());
+      }
       persistTransfer(transfer);
       return transfer;
     }
@@ -347,7 +513,7 @@ public class TransferOrchestrator {
       transfer.updateResolutionStatus(PendingAction.RETRY_CREDIT, false, clock.instant());
       transfer.recordStage(
           "query_credit",
-          io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+          StageOutcome.UNKNOWN,
           "Destination reported credit status ACCEPTED",
           clock.instant());
       persistTransfer(transfer);
@@ -357,6 +523,9 @@ public class TransferOrchestrator {
     // Row 4: Credit not found (404) at destination -> Re-send credit once with the SAME idempotency
     // key
     if (creditLegOpt.isEmpty()) {
+      if (traceRecorder != null) {
+        traceRecorder.recordStage(transfer.getId(), "resolve_credit", clock.instant());
+      }
       String creditKey = transfer.getId() + "-credit";
       LegRequestPayload creditPayload =
           new LegRequestPayload(
@@ -370,11 +539,25 @@ public class TransferOrchestrator {
               "SYNTHETIC");
 
       PaymentCallOutcome creditOutcome =
-          participantClient.applyLeg(toInst.baseUrl(), creditKey, creditPayload);
+          sendLeg(
+              transfer.getId(),
+              "resolve_credit",
+              toInst.id(),
+              toInst.baseUrl(),
+              creditKey,
+              creditPayload);
 
       switch (creditOutcome.status()) {
         case COMPLETED -> {
           transfer.complete("resolve_credit", clock.instant());
+          if (traceRecorder != null) {
+            traceRecorder.recordStateChange(
+                transfer.getId(),
+                "resolve_credit",
+                TransferState.UNKNOWN,
+                TransferState.COMPLETED,
+                clock.instant());
+          }
           persistTransfer(transfer);
           return transfer;
         }
@@ -382,7 +565,7 @@ public class TransferOrchestrator {
           transfer.updateResolutionStatus(PendingAction.RETRY_CREDIT, false, clock.instant());
           transfer.recordStage(
               "resolve_credit",
-              io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+              StageOutcome.UNKNOWN,
               "Re-sending credit timed out: " + creditOutcome.errorMessage(),
               clock.instant());
           persistTransfer(transfer);
@@ -404,7 +587,7 @@ public class TransferOrchestrator {
     // Any other unexpected state -> stays UNKNOWN
     transfer.recordStage(
         "resolve",
-        io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+        StageOutcome.UNKNOWN,
         "Ambiguous participant state during resolution",
         clock.instant());
     persistTransfer(transfer);
@@ -413,6 +596,9 @@ public class TransferOrchestrator {
 
   private Transfer executeReversal(
       Transfer transfer, Institution fromInst, String rejectionReason) {
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transfer.getId(), "resolve_reversal", clock.instant());
+    }
     String destReason =
         rejectionReason != null && !rejectionReason.isBlank() ? rejectionReason : "REJECTED";
     String revTxId = transfer.getId() + "-rev";
@@ -428,7 +614,14 @@ public class TransferOrchestrator {
             transfer.getId(),
             "SYNTHETIC");
 
-    PaymentCallOutcome revOutcome = sendLeg(fromInst.id(), fromInst.baseUrl(), revKey, revPayload);
+    PaymentCallOutcome revOutcome =
+        sendLeg(
+            transfer.getId(),
+            "resolve_reversal",
+            fromInst.id(),
+            fromInst.baseUrl(),
+            revKey,
+            revPayload);
 
     switch (revOutcome.status()) {
       case COMPLETED -> {
@@ -439,6 +632,14 @@ public class TransferOrchestrator {
             Emitter.DESTINATION,
             "Reversal completed after destination rejection",
             clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStateChange(
+              transfer.getId(),
+              "resolve_reversal",
+              TransferState.UNKNOWN,
+              TransferState.REJECTED,
+              clock.instant());
+        }
         persistTransfer(transfer);
         return transfer;
       }
@@ -448,7 +649,7 @@ public class TransferOrchestrator {
         transfer.updateResolutionStatus(PendingAction.REVERSE_DEBIT, false, clock.instant());
         transfer.recordStage(
             "resolve_reversal",
-            io.github.mhnuk2007.finsim.core.StageOutcome.UNKNOWN,
+            StageOutcome.UNKNOWN,
             "Reversal leg timed out: " + revOutcome.errorMessage(),
             clock.instant());
         persistTransfer(transfer);
@@ -460,7 +661,7 @@ public class TransferOrchestrator {
         transfer.updateResolutionStatus(PendingAction.REVERSE_DEBIT, true, clock.instant());
         transfer.recordStage(
             "resolve_reversal",
-            io.github.mhnuk2007.finsim.core.StageOutcome.FAILED,
+            StageOutcome.FAILED,
             "Reversal was rejected by source: " + revOutcome.errorMessage(),
             clock.instant());
         persistTransfer(transfer);
@@ -471,16 +672,36 @@ public class TransferOrchestrator {
   }
 
   private PaymentCallOutcome sendLeg(
+      String transactionId,
+      String stage,
       String targetInstitutionId,
       String baseUrl,
       String idempotencyKey,
       LegRequestPayload payload) {
+    long start = System.currentTimeMillis();
+    Instant callAt = clock.instant();
+
     if (faultService != null) {
       FaultDecision decision = faultService.evaluateOutboundCall(targetInstitutionId);
       if (decision.triggered()) {
+        if (traceRecorder != null) {
+          String faultId =
+              decision.matchedRule() != null
+                  ? decision.matchedRule().faultId()
+                  : decision.faultType().name();
+          traceRecorder.recordFaultInjected(
+              transactionId, stage, targetInstitutionId, faultId, clock.instant());
+        }
         if (decision.faultType() == FaultType.TIMEOUT) {
-          return PaymentCallOutcome.timedOut(
-              "Simulated timeout via fault injection on target " + targetInstitutionId);
+          long durationMs = System.currentTimeMillis() - start;
+          PaymentCallOutcome outcome =
+              PaymentCallOutcome.timedOut(
+                  "Simulated timeout via fault injection on target " + targetInstitutionId);
+          if (traceRecorder != null) {
+            traceRecorder.recordOutboundCall(
+                transactionId, stage, targetInstitutionId, payload, outcome, durationMs, callAt);
+          }
+          return outcome;
         } else if (decision.faultType() == FaultType.DELAY) {
           if (decision.delayMs() > 0) {
             try {
@@ -494,7 +715,14 @@ public class TransferOrchestrator {
         }
       }
     }
-    return participantClient.applyLeg(baseUrl, idempotencyKey, payload);
+
+    PaymentCallOutcome outcome = participantClient.applyLeg(baseUrl, idempotencyKey, payload);
+    long durationMs = System.currentTimeMillis() - start;
+    if (traceRecorder != null) {
+      traceRecorder.recordOutboundCall(
+          transactionId, stage, targetInstitutionId, payload, outcome, durationMs, callAt);
+    }
+    return outcome;
   }
 
   private Transfer createAndReject(
@@ -508,11 +736,19 @@ public class TransferOrchestrator {
       String reasonCode,
       Emitter emitter,
       String details) {
+    Instant now = clock.instant();
     Transfer transfer =
-        Transfer.create(
-            transactionId, networkId, idempotencyKey, from, to, money, reference, clock.instant());
-    transfer.reject("validate_routing", reasonCode, emitter, details, clock.instant());
+        Transfer.create(transactionId, networkId, idempotencyKey, from, to, money, reference, now);
+    transfer.reject("validate_routing", reasonCode, emitter, details, now);
     persistTransfer(transfer);
+
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transactionId, "created", now);
+      traceRecorder.recordStateChange(transactionId, "created", null, TransferState.CREATED, now);
+      traceRecorder.recordStage(transactionId, "validate_routing", now);
+      traceRecorder.recordStateChange(
+          transactionId, "validate_routing", TransferState.CREATED, TransferState.REJECTED, now);
+    }
     return transfer;
   }
 

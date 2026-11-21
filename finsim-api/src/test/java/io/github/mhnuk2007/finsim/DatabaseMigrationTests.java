@@ -38,6 +38,7 @@ class DatabaseMigrationTests {
               "institutions",
               "transfers",
               "transfer_stages",
+              "transfer_trace_events",
               "fault_rules",
               "flyway_schema_history");
 

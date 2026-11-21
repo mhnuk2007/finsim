@@ -267,4 +267,29 @@ class FinSimCliTest {
     assertThat(Json.quote("a\"b\\c\nd")).isEqualTo("\"a\\\"b\\\\c\\nd\"");
     assertThat(Json.array(List.of("X", "Y"))).isEqualTo("[\"X\",\"Y\"]");
   }
+
+  @Test
+  void traceCommandDispatchesGetWithTransactionId() throws Exception {
+    String body = "{\"transactionId\":\"tx-123\",\"events\":[]}";
+    String url = stubFinSim(200, body);
+
+    Result result = run("trace", "--id", "tx-123", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("GET");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-123/trace");
+    assertThat(result.out().strip()).isEqualTo(body);
+  }
+
+  @Test
+  void traceCommandAcceptsShortIdFlag() throws Exception {
+    String body = "{\"transactionId\":\"tx-456\",\"events\":[]}";
+    String url = stubFinSim(200, body);
+
+    Result result = run("trace", "-t", "tx-456", "--finsim", url);
+
+    assertThat(result.exit()).isZero();
+    assertThat(lastMethod.get()).isEqualTo("GET");
+    assertThat(lastPath.get()).isEqualTo("/api/v1/transfers/tx-456/trace");
+  }
 }

@@ -81,6 +81,16 @@ class TransferWorkflowTests {
         BodyHandlers.ofString());
   }
 
+  private HttpResponse<String> getTrace(String transactionId) throws Exception {
+    return http.send(
+        HttpRequest.newBuilder(
+                URI.create(
+                    "http://localhost:" + port + "/api/v1/transfers/" + transactionId + "/trace"))
+            .GET()
+            .build(),
+        BodyHandlers.ofString());
+  }
+
   private static String randomKey() {
     return "key-" + UUID.randomUUID().toString();
   }
@@ -713,5 +723,139 @@ class TransferWorkflowTests {
     HttpResponse<String> res = postTransfer("sandbox", key, malformedJson);
     assertThat(res.statusCode()).isEqualTo(400);
     assertThat(JsonPath.<String>read(res.body(), "$.code")).isEqualTo("INVALID_REQUEST");
+  }
+
+  @Test
+  @DisplayName("Issue #23: GET /api/v1/transfers/{id}/trace returns HTTP 404 for unknown transfer")
+  void getTraceReturns404ForUnknownTransfer() throws Exception {
+    HttpResponse<String> res = getTrace("tx-non-existent-999");
+    assertThat(res.statusCode()).isEqualTo(404);
+    assertThat(JsonPath.<String>read(res.body(), "$.code")).isEqualTo("NOT_FOUND");
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #23: A faulted transfer's trace shows the fault and the resulting UNKNOWN state")
+  void faultedTransferTraceShowsInjectedFaultAndResultingUnknown() throws Exception {
+    String key = randomKey();
+    String payload =
+        transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "150.00", "REF-TRACE-FAULT");
+
+    // Add a fault rule on destination bank-b
+    HttpRequest faultReq =
+        HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/v1/faults"))
+            .header("Content-Type", "application/json")
+            .POST(
+                BodyPublishers.ofString(
+                    """
+                    {
+                      "target": "bank-b",
+                      "type": "TIMEOUT"
+                    }
+                    """))
+            .build();
+    HttpResponse<String> faultRes = http.send(faultReq, BodyHandlers.ofString());
+    assertThat(faultRes.statusCode()).isEqualTo(201);
+    String faultId = JsonPath.read(faultRes.body(), "$.faultId");
+
+    // Step 1: Outbound debit to bank-a succeeds
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-ok"));
+
+    // Step 2: Outbound credit to bank-b will be intercepted by fault engine
+    HttpResponse<String> transferRes = postTransfer("sandbox", key, payload);
+    assertThat(transferRes.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(transferRes.body(), "$.transactionId");
+    assertThat(JsonPath.<String>read(transferRes.body(), "$.state")).isEqualTo("UNKNOWN");
+
+    // Retrieve the transfer execution trace
+    HttpResponse<String> traceRes = getTrace(txId);
+    assertThat(traceRes.statusCode()).isEqualTo(200);
+
+    String traceBody = traceRes.body();
+    assertThat(JsonPath.<String>read(traceBody, "$.transactionId")).isEqualTo(txId);
+
+    java.util.List<java.util.Map<String, Object>> events = JsonPath.read(traceBody, "$.events");
+    assertThat(events).isNotEmpty();
+
+    // Verify FAULT_INJECTED event was recorded with the matching faultId and target
+    boolean hasFaultInjected =
+        events.stream()
+            .anyMatch(
+                e ->
+                    "FAULT_INJECTED".equals(e.get("kind"))
+                        && "bank-b".equals(e.get("target"))
+                        && faultId.equals(e.get("faultId")));
+    assertThat(hasFaultInjected)
+        .as("Trace must contain FAULT_INJECTED event for bank-b with faultId %s", faultId)
+        .isTrue();
+
+    // Verify OUTBOUND_CALL event on bank-b with TIMED_OUT status
+    boolean hasOutboundTimeout =
+        events.stream()
+            .anyMatch(
+                e -> "OUTBOUND_CALL".equals(e.get("kind")) && "bank-b".equals(e.get("target")));
+    assertThat(hasOutboundTimeout)
+        .as("Trace must contain OUTBOUND_CALL event for target bank-b")
+        .isTrue();
+
+    // Verify resulting STATE_CHANGE to UNKNOWN
+    boolean hasUnknownStateChange =
+        events.stream()
+            .anyMatch(
+                e -> "STATE_CHANGE".equals(e.get("kind")) && "UNKNOWN".equals(e.get("toState")));
+    assertThat(hasUnknownStateChange)
+        .as("Trace must show resulting STATE_CHANGE to UNKNOWN")
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #23: Successful transfer trace records all stages, calls, and terminal COMPLETED state")
+  void successfulTransferTraceRecordsAllStagesAndCompletedState() throws Exception {
+    String key = randomKey();
+    String payload =
+        transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "200.00", "REF-TRACE-HAPPY");
+
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-100"));
+    when(participantClient.applyLeg(eq("http://localhost:9002"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("cred-100"));
+
+    HttpResponse<String> transferRes = postTransfer("sandbox", key, payload);
+    assertThat(transferRes.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(transferRes.body(), "$.transactionId");
+    assertThat(JsonPath.<String>read(transferRes.body(), "$.state")).isEqualTo("COMPLETED");
+
+    HttpResponse<String> traceRes = getTrace(txId);
+    assertThat(traceRes.statusCode()).isEqualTo(200);
+
+    String traceBody = traceRes.body();
+    assertThat(JsonPath.<String>read(traceBody, "$.transactionId")).isEqualTo(txId);
+
+    java.util.List<java.util.Map<String, Object>> events = JsonPath.read(traceBody, "$.events");
+
+    // Verify stages: created, accepted, debit_source, credit_destination
+    java.util.List<String> stages =
+        events.stream()
+            .filter(e -> "STAGE".equals(e.get("kind")))
+            .map(e -> (String) e.get("stage"))
+            .toList();
+    assertThat(stages).contains("created", "accepted", "debit_source", "credit_destination");
+
+    // Verify outbound calls to both bank-a and bank-b
+    java.util.List<String> outboundTargets =
+        events.stream()
+            .filter(e -> "OUTBOUND_CALL".equals(e.get("kind")))
+            .map(e -> (String) e.get("target"))
+            .toList();
+    assertThat(outboundTargets).contains("bank-a", "bank-b");
+
+    // Verify terminal STATE_CHANGE to COMPLETED
+    boolean hasCompletedStateChange =
+        events.stream()
+            .anyMatch(
+                e -> "STATE_CHANGE".equals(e.get("kind")) && "COMPLETED".equals(e.get("toState")));
+    assertThat(hasCompletedStateChange).isTrue();
   }
 }

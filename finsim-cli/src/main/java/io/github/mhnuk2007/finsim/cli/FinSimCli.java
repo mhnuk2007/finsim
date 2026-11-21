@@ -302,12 +302,22 @@ public class FinSimCli implements Runnable {
       description = "Start a transfer between two institutions.")
   static class Transfer extends NotImplemented {}
 
-  /** Placeholder: arrives with milestone 1, issue 19. */
   @Command(
       name = "trace",
       mixinStandardHelpOptions = true,
       description = "Show every stage, call, and fault for a transfer.")
-  static class Trace extends NotImplemented {}
+  static class Trace extends ApiCommand {
+    @Option(
+        names = {"--id", "-t"},
+        required = true,
+        description = "Transfer transaction identifier.")
+    String id;
+
+    @Override
+    FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+      return client.get("/api/v1/transfers/" + id + "/trace");
+    }
+  }
 
   /** Placeholder: arrives with milestone 1, issue 19. */
   @Command(

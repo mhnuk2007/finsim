@@ -1,5 +1,6 @@
 package io.github.mhnuk2007.finsim.transfer;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.github.mhnuk2007.finsim.core.StageEntry;
 import io.github.mhnuk2007.finsim.core.Transfer;
 import java.time.Instant;
@@ -56,6 +57,21 @@ public final class TransferDtos {
           transfer.getProvenance().name());
     }
   }
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record TraceEventDto(
+      Instant at,
+      String kind,
+      String stage,
+      String target,
+      Object request,
+      Object response,
+      Long durationMs,
+      String faultId,
+      String fromState,
+      String toState) {}
+
+  public record TraceResponse(String transactionId, List<TraceEventDto> events) {}
 
   public record ErrorResponse(
       String code, String message, String stage, String emittedBy, String traceId) {

@@ -3,6 +3,7 @@ package io.github.mhnuk2007.finsim.transfer;
 import io.github.mhnuk2007.finsim.core.Transfer;
 import io.github.mhnuk2007.finsim.core.TransferState;
 import io.github.mhnuk2007.finsim.transfer.TransferDtos.CreateTransferRequest;
+import io.github.mhnuk2007.finsim.transfer.TransferDtos.TraceResponse;
 import io.github.mhnuk2007.finsim.transfer.TransferExceptions.IdempotencyConflictException;
 import io.github.mhnuk2007.finsim.transfer.TransferExceptions.InvalidTransferRequestException;
 import io.github.mhnuk2007.finsim.transfer.TransferExceptions.MissingIdempotencyKeyException;
@@ -14,12 +15,14 @@ import io.github.mhnuk2007.finsim.transfer.internal.TransferOrchestrator;
 import io.github.mhnuk2007.finsim.transfer.internal.TransferRepository;
 import io.github.mhnuk2007.finsim.transfer.internal.TransferStageEntity;
 import io.github.mhnuk2007.finsim.transfer.internal.TransferStageRepository;
+import io.github.mhnuk2007.finsim.transfer.internal.TransferTraceRecorder;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,14 +36,25 @@ public class TransferService {
   private final TransferRepository transferRepository;
   private final TransferStageRepository stageRepository;
   private final TransferOrchestrator orchestrator;
+  private final TransferTraceRecorder traceRecorder;
+
+  @Autowired
+  public TransferService(
+      TransferRepository transferRepository,
+      TransferStageRepository stageRepository,
+      TransferOrchestrator orchestrator,
+      TransferTraceRecorder traceRecorder) {
+    this.transferRepository = transferRepository;
+    this.stageRepository = stageRepository;
+    this.orchestrator = orchestrator;
+    this.traceRecorder = traceRecorder;
+  }
 
   public TransferService(
       TransferRepository transferRepository,
       TransferStageRepository stageRepository,
       TransferOrchestrator orchestrator) {
-    this.transferRepository = transferRepository;
-    this.stageRepository = stageRepository;
-    this.orchestrator = orchestrator;
+    this(transferRepository, stageRepository, orchestrator, null);
   }
 
   /**
@@ -109,6 +123,18 @@ public class TransferService {
             .orElseThrow(() -> new TransferNotFoundException(transactionId));
     List<TransferStageEntity> stages = stageRepository.findByTransferIdOrderByIdAsc(transactionId);
     return entity.toDomain(stages);
+  }
+
+  /** Retrieves the execution trace for a transfer by transaction ID. */
+  @Transactional(readOnly = true)
+  public TraceResponse getTrace(String transactionId) {
+    if (!transferRepository.existsById(transactionId)) {
+      throw new TransferNotFoundException(transactionId);
+    }
+    if (traceRecorder == null) {
+      return new TraceResponse(transactionId, List.of());
+    }
+    return traceRecorder.getTrace(transactionId);
   }
 
   /**

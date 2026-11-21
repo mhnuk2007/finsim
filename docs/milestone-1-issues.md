@@ -85,8 +85,9 @@ Random sequences of duplicate requests, timeouts, and retries never change balan
 Implement `/api/v1/faults` and apply rules on outbound calls, with optional probability, count cap, and seed.
 *Status:* Completed in [#89](https://github.com/mhnuk2007/finsim/pull/89) (closed [#22](https://github.com/mhnuk2007/finsim/issues/22)). Deterministic rule engine in `finsim-sim`, REST endpoints in `finsim-api`, Flyway migration `V4__add_fault_rule_seed.sql`, and participant outbound HTTP interception in `TransferOrchestrator`.
 
-**17. Trace recording and endpoint** `[milestone-1]`
+**17. Trace recording and endpoint** `[milestone-1]` `[done]`
 Record stages, outbound calls (request, response, duration), injected faults, and state changes; expose `GET /api/v1/transfers/{id}/trace`.
+*Status:* Completed in [#23](https://github.com/mhnuk2007/finsim/issues/23). Transfer trace recording across stages, state changes, outbound participant calls, and injected faults via `TransferTraceRecorder`, PostgreSQL Flyway migration `V5__add_transfer_trace_events.sql`, `GET /api/v1/transfers/{transactionId}/trace` endpoint, and CLI `finsim trace --id <id>`.
 *Done when:* a faulted transfer's trace shows the fault and the resulting `UNKNOWN`.
 *Issue:* [#23](https://github.com/mhnuk2007/finsim/issues/23)
 

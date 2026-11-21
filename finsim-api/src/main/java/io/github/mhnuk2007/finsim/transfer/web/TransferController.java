@@ -2,6 +2,7 @@ package io.github.mhnuk2007.finsim.transfer.web;
 
 import io.github.mhnuk2007.finsim.core.Transfer;
 import io.github.mhnuk2007.finsim.transfer.TransferDtos.CreateTransferRequest;
+import io.github.mhnuk2007.finsim.transfer.TransferDtos.TraceResponse;
 import io.github.mhnuk2007.finsim.transfer.TransferDtos.TransferResponse;
 import io.github.mhnuk2007.finsim.transfer.TransferService;
 import io.github.mhnuk2007.finsim.transfer.TransferService.TransferExecutionResult;
@@ -55,6 +56,18 @@ public class TransferController {
           String transactionId) {
     Transfer transfer = transferService.getTransfer(transactionId);
     return ResponseEntity.ok(TransferResponse.from(transfer));
+  }
+
+  @GetMapping("/api/v1/transfers/{transactionId}/trace")
+  @Operation(
+      summary = "Every stage, outbound call, and injected fault for a transfer",
+      description =
+          "Returns every stage, outbound call, and injected fault recorded for a transfer")
+  public ResponseEntity<TraceResponse> getTrace(
+      @Parameter(description = "Transfer transaction identifier") @PathVariable("transactionId")
+          String transactionId) {
+    TraceResponse trace = transferService.getTrace(transactionId);
+    return ResponseEntity.ok(trace);
   }
 
   @PostMapping("/api/v1/transfers/{transactionId}/resolve")
