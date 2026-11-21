@@ -113,6 +113,31 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /api/v1/networks/{networkId}/directory:
+    get:
+      tags: [Network API]
+      operationId: getNetworkDirectory
+      summary: Active participant directory and declared capabilities on a network.
+      description: |
+        Returns registered active member institutions on the network, their base URLs,
+        and declared capabilities. Decouples participants, CLI, and Web Cockpit from hardcoded URLs.
+      parameters:
+        - name: networkId
+          in: path
+          required: true
+          schema: { type: string, examples: [sandbox] }
+      responses:
+        "200":
+          description: Participant directory for the network.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NetworkDirectory" }
+        "404":
+          description: Network not found.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /api/v1/networks/{networkId}/transfers:
     post:
       tags: [Network API]
@@ -457,3 +482,31 @@ components:
         stage: { type: string }
         emittedBy: { type: string, enum: [FINSIM, SOURCE, DESTINATION] }
         traceId: { type: string }
+
+    NetworkDirectory:
+      type: object
+      required: [networkId, name, currencies, participants]
+      properties:
+        networkId: { type: string, examples: [sandbox] }
+        name: { type: string, examples: [FinSim Sandbox Network] }
+        currencies:
+          type: array
+          items: { type: string, examples: [USD] }
+        participants:
+          type: array
+          items: { $ref: "#/components/schemas/ParticipantDirectoryEntry" }
+
+    ParticipantDirectoryEntry:
+      type: object
+      required: [id, name, type, baseUrl, capabilities, status, provenance]
+      properties:
+        id: { type: string, examples: [bank-a] }
+        name: { type: string, examples: [First Synthetic Bank] }
+        type: { type: string, enum: [BANK, MERCHANT, PAYMENT_GATEWAY, CUSTOM] }
+        baseUrl: { type: string, format: uri, examples: ["http://localhost:9001"] }
+        capabilities:
+          type: array
+          items: { type: string, enum: [ACCOUNT_DEBIT, ACCOUNT_CREDIT, STATUS_QUERY] }
+        status: { type: string, enum: [ACTIVE, SUSPENDED] }
+        provenance: { $ref: "#/components/schemas/Provenance" }
+

@@ -98,6 +98,26 @@ public class Registry {
     return networks.findById(id).orElseThrow(() -> new NetworkNotFound(id)).toDomain();
   }
 
+  /**
+   * Returns dynamic directory discovery information for a network: registered active member
+   * institutions, base URLs, and declared capabilities.
+   */
+  @Transactional(readOnly = true)
+  public NetworkDirectory directory(String networkId) {
+    Network network = network(networkId);
+    List<NetworkDirectory.ParticipantDirectoryEntry> activeParticipants =
+        network.memberIds().stream()
+            .sorted()
+            .map(institutions::findById)
+            .flatMap(Optional::stream)
+            .map(InstitutionEntity::toDomain)
+            .filter(inst -> inst.status() == InstitutionStatus.ACTIVE)
+            .map(NetworkDirectory.ParticipantDirectoryEntry::from)
+            .toList();
+    return new NetworkDirectory(
+        network.id(), network.name(), network.currencies(), activeParticipants);
+  }
+
   /** Adds an institution to a network. Idempotent. */
   public Network addMember(String networkId, String institutionId) {
     NetworkEntity network =

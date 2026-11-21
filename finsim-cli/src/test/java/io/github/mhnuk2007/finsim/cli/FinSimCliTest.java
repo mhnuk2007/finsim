@@ -72,6 +72,7 @@ class FinSimCliTest {
             "register",
             "institutions",
             "networks",
+            "directory",
             "join",
             "verify",
             "transfer",
@@ -188,6 +189,12 @@ class FinSimCliTest {
 
     assertThat(run("networks", "--finsim", url, "--id", "sandbox").exit()).isZero();
     assertThat(lastPath.get()).isEqualTo("/api/v1/networks/sandbox");
+
+    assertThat(run("networks", "--finsim", url, "--id", "sandbox", "--directory").exit()).isZero();
+    assertThat(lastPath.get()).isEqualTo("/api/v1/networks/sandbox/directory");
+
+    assertThat(run("directory", "--finsim", url, "--network", "sandbox").exit()).isZero();
+    assertThat(lastPath.get()).isEqualTo("/api/v1/networks/sandbox/directory");
   }
 
   @Test

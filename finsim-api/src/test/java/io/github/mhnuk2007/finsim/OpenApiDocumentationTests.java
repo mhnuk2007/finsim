@@ -40,6 +40,10 @@ class OpenApiDocumentationTests {
             JsonPath.<Object>read(
                 response.body(), "$.paths['/api/v1/networks/{networkId}/transfers']"))
         .isNotNull();
+    assertThat(
+            JsonPath.<Object>read(
+                response.body(), "$.paths['/api/v1/networks/{networkId}/directory']"))
+        .isNotNull();
   }
 
   @Test

@@ -20,6 +20,7 @@ import picocli.CommandLine.Spec;
       FinSimCli.Register.class,
       FinSimCli.Institutions.class,
       FinSimCli.Networks.class,
+      FinSimCli.Directory.class,
       FinSimCli.Join.class,
       FinSimCli.Verify.class,
       FinSimCli.Transfer.class,
@@ -185,9 +186,34 @@ public class FinSimCli implements Runnable {
     @Option(names = "--id", description = "Show a single network.")
     String id;
 
+    @Option(
+        names = "--directory",
+        description = "Show participant directory for the network (requires --id).")
+    boolean directory;
+
     @Override
     FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+      if (id != null && directory) {
+        return client.get("/api/v1/networks/" + id + "/directory");
+      }
       return client.get(id == null ? "/api/v1/networks" : "/api/v1/networks/" + id);
+    }
+  }
+
+  @Command(
+      name = "directory",
+      mixinStandardHelpOptions = true,
+      description = "Show the participant directory for a network.")
+  static class Directory extends ApiCommand {
+    @Option(
+        names = {"--network", "-n"},
+        required = true,
+        description = "Network id, for example sandbox.")
+    String network;
+
+    @Override
+    FinSimClient.Response execute(FinSimClient client) throws IOException, InterruptedException {
+      return client.get("/api/v1/networks/" + network + "/directory");
     }
   }
 

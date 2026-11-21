@@ -141,4 +141,28 @@ class RegistryApiTests {
     assertThat(noNetwork.statusCode()).isEqualTo(404);
     assertThat((String) JsonPath.read(noNetwork.body(), "$.code")).isEqualTo("NETWORK_NOT_FOUND");
   }
+
+  @Test
+  void dynamicNetworkDirectoryReturnsActiveParticipantsAndRejectsUnknownNetwork() throws Exception {
+    HttpResponse<String> response = get("/api/v1/networks/sandbox/directory");
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat((String) JsonPath.read(response.body(), "$.networkId")).isEqualTo("sandbox");
+    assertThat((String) JsonPath.read(response.body(), "$.name")).isEqualTo("Sandbox");
+    List<String> currencies = JsonPath.read(response.body(), "$.currencies");
+    assertThat(currencies).containsExactly("USD");
+
+    List<String> participantIds = JsonPath.read(response.body(), "$.participants[*].id");
+    assertThat(participantIds).contains("bank-a", "bank-b");
+
+    List<String> baseUrls = JsonPath.read(response.body(), "$.participants[*].baseUrl");
+    assertThat(baseUrls).contains("http://localhost:9001", "http://localhost:9002");
+
+    List<String> statuses = JsonPath.read(response.body(), "$.participants[*].status");
+    assertThat(statuses).containsOnly("ACTIVE");
+
+    HttpResponse<String> unknown = get("/api/v1/networks/ghost-net/directory");
+    assertThat(unknown.statusCode()).isEqualTo(404);
+    assertThat((String) JsonPath.read(unknown.body(), "$.code")).isEqualTo("NETWORK_NOT_FOUND");
+  }
 }

@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.mhnuk2007.finsim.registry.Capability;
+import io.github.mhnuk2007.finsim.registry.InstitutionStatus;
 import io.github.mhnuk2007.finsim.registry.InstitutionType;
+import io.github.mhnuk2007.finsim.registry.NetworkDirectory;
 import io.github.mhnuk2007.finsim.registry.RegisterInstitution;
 import io.github.mhnuk2007.finsim.registry.Registry;
+import io.github.mhnuk2007.finsim.registry.RegistryExceptions;
 import io.github.mhnuk2007.finsim.registry.RegistryExceptions.CapabilityNotSupported;
 import io.github.mhnuk2007.finsim.registry.RegistryExceptions.InstitutionAlreadyExists;
 import io.github.mhnuk2007.finsim.registry.RegistryExceptions.InvalidInstitution;
@@ -109,5 +112,34 @@ class RegistryServiceTests {
     var again = registry.addMember("sandbox", id);
 
     assertThat(again.memberIds().stream().filter(id::equals).count()).isEqualTo(1);
+  }
+
+  @Test
+  void directoryDiscoversActiveParticipantsAndCapabilities() {
+    var directory = registry.directory("sandbox");
+
+    assertThat(directory.networkId()).isEqualTo("sandbox");
+    assertThat(directory.currencies()).containsExactly("USD");
+    assertThat(directory.participants())
+        .extracting(NetworkDirectory.ParticipantDirectoryEntry::id)
+        .contains("bank-a", "bank-b");
+
+    var bankA = directory.findParticipant("bank-a").orElseThrow();
+    assertThat(bankA.baseUrl()).isEqualTo("http://localhost:9001");
+    assertThat(bankA.capabilities())
+        .contains(Capability.ACCOUNT_DEBIT, Capability.ACCOUNT_CREDIT, Capability.STATUS_QUERY);
+    assertThat(bankA.status()).isEqualTo(InstitutionStatus.ACTIVE);
+    assertThat(bankA.provenance()).isEqualTo("SYNTHETIC");
+
+    var debitorBanks = directory.findByCapability(Capability.ACCOUNT_DEBIT);
+    assertThat(debitorBanks)
+        .extracting(NetworkDirectory.ParticipantDirectoryEntry::id)
+        .contains("bank-a", "bank-b");
+  }
+
+  @Test
+  void directoryThrowsNetworkNotFoundForUnknownNetwork() {
+    assertThatThrownBy(() -> registry.directory("unknown-network"))
+        .isInstanceOf(RegistryExceptions.NetworkNotFound.class);
   }
 }

@@ -1,6 +1,7 @@
 package io.github.mhnuk2007.finsim.registry.web;
 
 import io.github.mhnuk2007.finsim.registry.Network;
+import io.github.mhnuk2007.finsim.registry.NetworkDirectory;
 import io.github.mhnuk2007.finsim.registry.Registry;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -29,6 +30,14 @@ class NetworkController {
   @GetMapping("/{networkId}")
   Network get(@PathVariable("networkId") String networkId) {
     return registry.network(networkId);
+  }
+
+  /**
+   * Dynamic directory discovery endpoint for active network participants and declared capabilities.
+   */
+  @GetMapping("/{networkId}/directory")
+  NetworkDirectory directory(@PathVariable("networkId") String networkId) {
+    return registry.directory(networkId);
   }
 
   /** Adds an institution to the network. Idempotent. */

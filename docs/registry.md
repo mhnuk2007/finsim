@@ -20,6 +20,7 @@ Everything is labeled `"provenance": "SYNTHETIC"`.
 | `GET /api/v1/institutions/{id}` | One institution (`404` if unknown) |
 | `GET /api/v1/networks` | List networks |
 | `GET /api/v1/networks/{networkId}` | One network, with `memberIds`, `currencies`, and `scheme` |
+| `GET /api/v1/networks/{networkId}/directory` | Participant directory discovery: active members, base URLs, and capabilities |
 | `POST /api/v1/networks/{networkId}/members` | Add `{"institutionId": "..."}` to a network. Idempotent |
 
 Registration is idempotent by its natural key instead of an `Idempotency-Key` header, because it is an administration call rather than a financial mutation.
@@ -32,7 +33,7 @@ Errors always look like `{"code": "...", "message": "..."}`:
 | `INVALID_REQUEST` | 400 | Malformed JSON |
 | `INSTITUTION_NOT_FOUND`, `NETWORK_NOT_FOUND` | 404 | Unknown id |
 | `INSTITUTION_ALREADY_EXISTS` | 409 | Same id, different definition |
-| `NOT_A_MEMBER`, `CAPABILITY_NOT_SUPPORTED` | 422 | Raised by routing checks inside FinSim |
+| `INSTITUTION_SUSPENDED`, `NOT_A_MEMBER`, `CAPABILITY_NOT_SUPPORTED` | 422 | Raised by routing checks inside FinSim |
 
 ## CLI
 
@@ -43,6 +44,8 @@ finsim institutions                  # list
 finsim institutions --id my-bank     # show one
 finsim join --network sandbox --institution my-bank
 finsim networks --id sandbox
+finsim directory --network sandbox   # participant directory discovery
+finsim networks --id sandbox --directory
 ```
 
 The CLI talks to `http://localhost:8080` by default. Use `--finsim <url>` or the `FINSIM_URL` environment variable to change it. Output is the JSON FinSim returns; failures print the HTTP status and body to stderr and exit with code 1.
@@ -87,4 +90,4 @@ This check looks only at literal addresses and syntax to preserve offline determ
 
 ## Not built yet
 
-Dynamic participant directory discovery endpoint (`GET /api/v1/networks/{networkId}/directory`, issue #31), suspending institutions (issue #78), removing members, per-institution credentials, and configurable schemes. (Participant contract verification is available via `finsim verify --url <url>`, closed #25).
+Removing members, per-institution credentials, and configurable schemes. (Participant contract verification is available via `finsim verify --url <url>`, closed #25; dynamic participant directory discovery is available via `GET /api/v1/networks/{networkId}/directory`, closed #31).

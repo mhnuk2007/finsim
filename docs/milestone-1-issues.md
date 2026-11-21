@@ -40,8 +40,9 @@ One seeded `sandbox` network with a hardcoded scheme (USD only, `wf.transfer.v1`
 FinSim refuses to route a leg to an institution that hasn't declared the required capability (`ACCOUNT_DEBIT`, `ACCOUNT_CREDIT`, `STATUS_QUERY`).
 *Status:* Completed. `Registry.requireRoutable(...)` integrated into `TransferOrchestrator` and verified in `TransferWorkflowTests`.
 
-**8. Dynamic network directory discovery endpoint** `[milestone-1]` `[help wanted]`
+**8. Dynamic network directory discovery endpoint** `[milestone-1]` `[done]`
 Expose `GET /api/v1/networks/{networkId}/directory` returning registered, active participants and declared capabilities. Decouples sample participants, CLI, and Web Cockpit (#29) from hardcoded URLs.
+*Status:* Completed. Implemented in `finsim-registry` (`NetworkDirectory`, `Registry.directory`, `NetworkController`), CLI commands (`finsim directory`, `finsim networks --directory`), and verified in unit and API integration tests.
 *Issue:* [#31](https://github.com/mhnuk2007/finsim/issues/31)
 
 ---
