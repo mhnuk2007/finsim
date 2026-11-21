@@ -36,6 +36,7 @@ FinSim never reads or writes your database. It only knows what your institution 
 | `GET /api/v1/institutions/{id}` | Inspect an institution |
 | `GET /api/v1/networks` | List networks |
 | `GET /api/v1/networks/{networkId}` | Inspect a network and its member institutions |
+| `GET /api/v1/networks/{networkId}/directory` | Dynamic participant directory discovery (active members, base URLs, declared capabilities) |
 | `POST /api/v1/networks/{networkId}/members` | Join an institution to a network |
 
 ## Rules that always apply

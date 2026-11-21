@@ -39,7 +39,10 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | Payment orchestration & ADR 0001 resolution: debit/credit orchestration, `UNKNOWN` state handling, resolve endpoint | Done |
 | Fault injection & Chaos invariants: `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY` rules, jqwik property-based conservation tests | Done |
 | Participant conformance test engine: `finsim verify --url` 7-phase validation suite | Done |
-| Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify` | In progress |
+| Transfer trace recording: stages, state changes, participant calls, injected faults, `finsim trace` | Done |
+| Multi-container Docker Compose quickstart: PostgreSQL 17, FinSim API, Bank A, Bank B, healthchecks | Done |
+| Dynamic network directory discovery: `GET /api/v1/networks/{id}/directory`, CLI `finsim directory` | Done |
+| Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
 | Milestone 3: disputes, reconciliation, scenario replay | Planned |
 | Clearing, RTGS, FX, screening, ISO 20022, billers, fees | Roadmap (help wanted) |
@@ -48,13 +51,28 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 
 See [docs/quickstart.md](docs/quickstart.md) for the full step-by-step walkthrough.
 
-### Try the running platform today
+### Option A: Complete Multi-Container Stack (Fastest)
 
-You can run PostgreSQL, the FinSim API, the Java/Python/Node sample banks, and the CLI right now:
+Bring up PostgreSQL 17, Bank A, Bank B, and the FinSim API with a single command:
+
+```bash
+docker compose up -d
+```
+
+Verify services:
+```bash
+curl http://localhost:8080/actuator/health
+curl http://localhost:9001/finsim/v1/institution/health
+curl http://localhost:9002/finsim/v1/institution/health
+```
+
+### Option B: Local Gradle Development
+
+If running from source locally:
 
 ```bash
 # 1. Start PostgreSQL 17
-docker compose -f deploy/docker-compose.yml up -d
+docker compose up -d postgres
 
 # 2. Start the FinSim API (port 8080)
 ./gradlew :finsim-api:bootRun

@@ -18,7 +18,7 @@ Add Spring Modulith and ArchUnit checks so modules cannot touch each other's int
 
 **3. Database baseline** `[milestone-1]` `[done]`
 PostgreSQL 17 + Flyway; base migration with common columns (`id`, `created_at`, `updated_at`, `version`); Testcontainers for automated tests, Docker Compose for local development. Strict PostgreSQL parity (no H2 fallback).
-*Status:* Completed. Flyway `V1__baseline.sql`, `V2__registry.sql`, `V3__widen_transfer_amount_scale.sql` (NUMERIC(22, 8) precision, closed [#46](https://github.com/mhnuk2007/finsim/issues/46) in [#66](https://github.com/mhnuk2007/finsim/pull/66)), and `V4__add_fault_rule_seed.sql` (closed [#22](https://github.com/mhnuk2007/finsim/issues/22) in [#89](https://github.com/mhnuk2007/finsim/pull/89)) verified with Testcontainers and Compose.
+*Status:* Completed. Flyway `V1__baseline.sql`, `V2__registry.sql`, `V3__widen_transfer_amount_scale.sql` (NUMERIC(22, 8) precision, closed [#46](https://github.com/mhnuk2007/finsim/issues/46) in [#66](https://github.com/mhnuk2007/finsim/pull/66)), `V4__add_fault_rule_seed.sql` (closed [#22](https://github.com/mhnuk2007/finsim/issues/22) in [#89](https://github.com/mhnuk2007/finsim/pull/89)), and `V5__add_transfer_trace_events.sql` (closed [#23](https://github.com/mhnuk2007/finsim/issues/23) in [#110](https://github.com/mhnuk2007/finsim/pull/110)) verified with Testcontainers and Compose.
 
 **4. Publish the contract** `[milestone-1]` `[done]`
 Add `contract/finsim-v1.openapi.yaml`, validate it in CI, generate server stubs or models from it.
@@ -114,7 +114,7 @@ Same behavior in Node/TypeScript, in a separate directory, no shared code.
 
 **22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[partially-done]`
 Commands that wrap the network API with human-readable output and `--json` raw machine-readable flag support.
-*Status:* Registry commands (`register`, `institutions`, `networks`, `join`) completed with client and `--json` / `-j` flag handling (closed [#17](https://github.com/mhnuk2007/finsim/issues/17) in [#35](https://github.com/mhnuk2007/finsim/pull/35)). Standard `--help` and `-h` support added across all eight subcommands in [#93](https://github.com/mhnuk2007/finsim/pull/93) (closed [#54](https://github.com/mhnuk2007/finsim/issues/54)). Transfer, trace, and fault subcommands pending payment workflow API.
+*Status:* Registry commands (`register`, `institutions`, `networks`, `join`, `directory`) completed with client and `--json` / `-j` flag handling (closed [#17](https://github.com/mhnuk2007/finsim/issues/17) in [#35](https://github.com/mhnuk2007/finsim/pull/35), closed [#31](https://github.com/mhnuk2007/finsim/issues/31) in [#108](https://github.com/mhnuk2007/finsim/pull/108)). Standard `--help` and `-h` support active across subcommands (closed [#54](https://github.com/mhnuk2007/finsim/issues/54) in [#93](https://github.com/mhnuk2007/finsim/pull/93)). Trace command (`finsim trace --id <id>`) completed in [#110](https://github.com/mhnuk2007/finsim/pull/110) (closed [#23](https://github.com/mhnuk2007/finsim/issues/23)). Transfer and fault CLI subcommands pending.
 
 **23. CLI: `finsim verify --url`** `[milestone-1]` `[done]`
 Check health, capabilities, debit and credit, idempotent replay, idempotency conflict, status query, and error shape. Actionable messages: which check failed, why, how to fix.

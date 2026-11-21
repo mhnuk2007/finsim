@@ -376,10 +376,10 @@ Property tests for transfers or the state machine.
 
 ## Acceptance criteria
 
-- [ ] `docker compose -f deploy/docker-compose.yml up --build` brings everything up from clean checkout.
-- [ ] `curl http://localhost:8080/actuator/health` and `curl http://localhost:9001/finsim/v1/institution/health` report UP.
-- [ ] `curl http://localhost:8080/api/v1/networks/sandbox` lists `bank-a` and `bank-b`.
-- [ ] `scripts/conformance.sh http://localhost:9001` and `http://localhost:9002` both pass against containers.
+- [x] `docker compose -f deploy/docker-compose.yml up --build` brings everything up from clean checkout.
+- [x] `curl http://localhost:8080/actuator/health` and `curl http://localhost:9001/finsim/v1/institution/health` report UP.
+- [x] `curl http://localhost:8080/api/v1/networks/sandbox` lists `bank-a` and `bank-b`.
+- [x] `scripts/conformance.sh http://localhost:9001` and `http://localhost:9002` both pass against containers.
 "@
     }
     20 = @{

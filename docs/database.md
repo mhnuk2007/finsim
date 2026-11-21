@@ -12,7 +12,8 @@ FinSim uses **PostgreSQL 17** exclusively across all environments. There is no H
   - `finsim-registry/src/main/resources/db/migration/V2__registry.sql`: registry tables (`registry_institutions`, `registry_networks`, and relationships).
   - `finsim-api/src/main/resources/db/migration/V3__widen_transfer_amount_scale.sql`: widens `transfers.amount` from `NUMERIC(18, 4)` to `NUMERIC(22, 8)` to align with the 8-decimal Money domain model and high-precision/crypto amounts (closed #46 in #66).
   - `finsim-api/src/main/resources/db/migration/V4__add_fault_rule_seed.sql`: adds `seed` column (`BIGINT`) to `fault_rules` table to enable deterministic pseudo-random number generator (PRNG) evaluation for probabilistic faults (closed #22 in #89).
-  - Version numbering is globally sequential (`V1`, `V2`, `V3`, `V4`, ...) across all modules.
+  - `finsim-api/src/main/resources/db/migration/V5__add_transfer_trace_events.sql`: creates `transfer_trace_events` table to record chronological execution traces across lifecycle stages, state changes, participant outbound HTTP calls with request/response durations, and injected faults (closed #23 in #110).
+  - Version numbering is globally sequential (`V1`, `V2`, `V3`, `V4`, `V5`, ...) across all modules.
 - **Common Audit and Concurrency Columns**: Every persistent entity table maintains:
   - `created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP`
   - `updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP`
@@ -66,6 +67,26 @@ Append-only log of every state transition and workflow stage executed for a tran
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | Timestamp of entry creation |
 
 *Index*: `idx_transfer_stages_transfer_id` on `transfer_id`.
+
+#### `transfer_trace_events`
+Chronological execution events (`STAGE`, `STATE_CHANGE`, `OUTBOUND_CALL`, `FAULT_INJECTED`) recorded during transfer lifecycle execution, exposed via `GET /api/v1/transfers/{transactionId}/trace` and CLI `finsim trace --id <id>`.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `BIGINT` | `GENERATED ALWAYS AS IDENTITY PRIMARY KEY` | Sequential event identifier |
+| `transfer_id` | `VARCHAR(64)` | `NOT NULL REFERENCES transfers(id) ON DELETE CASCADE` | Associated transfer |
+| `kind` | `VARCHAR(32)` | `NOT NULL` | Event discriminator (`STAGE`, `STATE_CHANGE`, `OUTBOUND_CALL`, `FAULT_INJECTED`) |
+| `stage` | `VARCHAR(64)` | Nullable | Transfer workflow stage during event |
+| `target` | `VARCHAR(64)` | Nullable | Target participant institution identifier |
+| `request_payload` | `TEXT` | Nullable | JSON serialized outbound request body |
+| `response_payload` | `TEXT` | Nullable | JSON serialized participant response body |
+| `duration_ms` | `BIGINT` | Nullable | Round-trip network latency in milliseconds |
+| `fault_id` | `VARCHAR(64)` | Nullable | Injected fault rule identifier |
+| `from_state` | `VARCHAR(32)` | Nullable | Prior aggregate state for `STATE_CHANGE` |
+| `to_state` | `VARCHAR(32)` | Nullable | Target aggregate state for `STATE_CHANGE` |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | Event timestamp |
+
+*Index*: `idx_transfer_trace_events_transfer_id` on `transfer_id`.
 
 #### `fault_rules`
 Simulation rules injected dynamically to simulate real-world network anomalies.
