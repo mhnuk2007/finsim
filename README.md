@@ -43,6 +43,7 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | Multi-container Docker Compose quickstart: PostgreSQL 17, FinSim API, Bank A, Bank B, healthchecks | Done |
 | Dynamic network directory discovery: `GET /api/v1/networks/{id}/directory`, CLI `finsim directory` | Done |
 | CLI transfer, resolve, & fault management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove` | Done |
+| Cloud deployment & security hardening: production Docker Compose stack, Caddy automated TLS, CORS for web frontends, and SSRF/metadata guards | Done (`docker-compose.prod.yml`, `docs/deployment-oracle-cloud.md`) |
 | Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
 | Milestone 3: disputes, reconciliation, scenario replay | Planned |
