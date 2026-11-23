@@ -381,7 +381,8 @@ class FinSimCliTest {
     assertThat(lastBody.get())
         .contains("\"from\":{\"institutionId\":\"bank-a\",\"accountReference\":\"ACC-1\"}")
         .contains("\"to\":{\"institutionId\":\"bank-b\",\"accountReference\":\"ACC-2\"}")
-        .contains("\"money\":{\"amount\":\"50.00\",\"currency\":\"USD\"}");
+        .contains("\"money\":{\"amount\":\"50.00\",\"currency\":\"USD\"}")
+        .contains("\"reference\":\"CLI-TRANSFER\"");
   }
 
   @Test

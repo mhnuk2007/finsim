@@ -403,9 +403,8 @@ public class FinSimCli implements Runnable {
           .append(",\"currency\":")
           .append(Json.quote(currency != null ? currency : "USD"))
           .append("}");
-      if (reference != null && !reference.isBlank()) {
-        sb.append(",\"reference\":").append(Json.quote(reference));
-      }
+      String ref = (reference != null && !reference.isBlank()) ? reference : "CLI-TRANSFER";
+      sb.append(",\"reference\":").append(Json.quote(ref));
       sb.append("}");
 
       return client.post("/api/v1/networks/" + network + "/transfers", sb.toString(), key);

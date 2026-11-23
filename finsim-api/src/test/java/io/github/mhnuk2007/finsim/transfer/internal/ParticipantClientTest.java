@@ -107,4 +107,97 @@ class ParticipantClientTest {
     assertThat(outcome.participantReference()).isEqualTo("PART-REF-99");
     mockServer.verify();
   }
+
+  @Test
+  @DisplayName(
+      "Issue #116: HTTP 200 with status ACCEPTED is classified as TIMED_OUT (holds in UNKNOWN)")
+  void http200WithAcceptedClassifiedAsTimedOut() {
+    mockServer
+        .expect(requestTo("http://localhost:9001/finsim/v1/payments"))
+        .andExpect(method(HttpMethod.POST))
+        .andRespond(
+            withSuccess(
+                "{\"status\": \"ACCEPTED\", \"participantReference\": \"ASYNC-REF-1\"}",
+                MediaType.APPLICATION_JSON));
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-4", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-4", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome = client.applyLeg("http://localhost:9001", "idemp-key-4", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.TIMED_OUT);
+    assertThat(outcome.errorMessage()).contains("asynchronous status: ACCEPTED");
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #116: HTTP 200 with status PENDING is classified as TIMED_OUT (holds in UNKNOWN)")
+  void http200WithPendingClassifiedAsTimedOut() {
+    mockServer
+        .expect(requestTo("http://localhost:9001/finsim/v1/payments"))
+        .andExpect(method(HttpMethod.POST))
+        .andRespond(
+            withSuccess(
+                "{\"status\": \"PENDING\", \"participantReference\": \"PENDING-REF-1\"}",
+                MediaType.APPLICATION_JSON));
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-5", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-5", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome = client.applyLeg("http://localhost:9001", "idemp-key-5", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.TIMED_OUT);
+    assertThat(outcome.errorMessage()).contains("asynchronous status: PENDING");
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #116: HTTP 200 with application status REJECTED is classified as REJECTED with reasonCode")
+  void http200WithRejectedClassifiedAsRejected() {
+    mockServer
+        .expect(requestTo("http://localhost:9001/finsim/v1/payments"))
+        .andExpect(method(HttpMethod.POST))
+        .andRespond(
+            withSuccess(
+                "{\"status\": \"REJECTED\", \"reasonCode\": \"AM04\", \"participantReference\": \"REJ-1\"}",
+                MediaType.APPLICATION_JSON));
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-6", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-6", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome = client.applyLeg("http://localhost:9001", "idemp-key-6", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.REJECTED);
+    assertThat(outcome.reasonCode()).isEqualTo("AM04");
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #116: HTTP 200 with missing, empty, or unknown status is classified as TIMED_OUT")
+  void http200WithUnknownOrMissingStatusClassifiedAsTimedOut() {
+    mockServer
+        .expect(requestTo("http://localhost:9001/finsim/v1/payments"))
+        .andExpect(method(HttpMethod.POST))
+        .andRespond(
+            withSuccess(
+                "{\"status\": \"SOME_FUTURE_STATUS\", \"participantReference\": \"REF-UNKNOWN\"}",
+                MediaType.APPLICATION_JSON));
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-7", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-7", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome = client.applyLeg("http://localhost:9001", "idemp-key-7", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.TIMED_OUT);
+    assertThat(outcome.errorMessage())
+        .contains("Unrecognized participant leg status: SOME_FUTURE_STATUS");
+    mockServer.verify();
+  }
 }

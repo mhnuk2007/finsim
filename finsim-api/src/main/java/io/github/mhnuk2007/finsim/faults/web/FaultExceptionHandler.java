@@ -23,4 +23,12 @@ public class FaultExceptionHandler {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
         .body(new FaultErrorResponse("NOT_FOUND", ex.getMessage()));
   }
+
+  @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+  public ResponseEntity<FaultErrorResponse> handleHttpMessageNotReadable(
+      org.springframework.http.converter.HttpMessageNotReadableException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(
+            new FaultErrorResponse("BAD_REQUEST", "Malformed or unreadable JSON request payload."));
+  }
 }

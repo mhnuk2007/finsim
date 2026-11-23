@@ -330,4 +330,19 @@ class FaultApiTests {
     assertThat(res2.statusCode()).isEqualTo(201);
     assertThat(JsonPath.<String>read(res2.body(), "$.state")).isEqualTo("COMPLETED");
   }
+
+  @Test
+  @DisplayName(
+      "Issue #121: Malformed JSON or invalid enum on POST /api/v1/faults returns HTTP 400 with BAD_REQUEST")
+  void malformedJsonOrInvalidEnumReturns400() throws Exception {
+    // Malformed JSON
+    HttpResponse<String> res1 = postFault("{\"target\": \"bank-b\", malformed}");
+    assertThat(res1.statusCode()).isEqualTo(400);
+    assertThat(JsonPath.<String>read(res1.body(), "$.code")).isEqualTo("BAD_REQUEST");
+
+    // Invalid fault type enum value
+    HttpResponse<String> res2 = postFault("{\"target\": \"bank-b\", \"type\": \"INVALID_TYPE\"}");
+    assertThat(res2.statusCode()).isEqualTo(400);
+    assertThat(JsonPath.<String>read(res2.body(), "$.code")).isEqualTo("BAD_REQUEST");
+  }
 }

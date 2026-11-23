@@ -458,7 +458,8 @@ class TransferWorkflowTests {
                     txId, "CREDIT", "REJECTED", "AC04", "cred-rej", "SYNTHETIC")));
 
     // Source bank refuses reversal
-    when(participantClient.applyLeg(eq("http://localhost:9001"), eq(key + ":rev"), any()))
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
         .thenReturn(PaymentCallOutcome.rejected("MS03", "Reversal rejected by ledger"));
 
     HttpResponse<String> resolveRes = postResolve(txId);
@@ -528,7 +529,8 @@ class TransferWorkflowTests {
         .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
 
     // 3. Compensating reversal leg to source succeeds
-    when(participantClient.applyLeg(eq("http://localhost:9001"), eq(key + ":rev"), any()))
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
         .thenReturn(PaymentCallOutcome.completed("rev-orch-ok"));
 
     HttpResponse<String> res = postTransfer("sandbox", key, payload);
@@ -544,7 +546,7 @@ class TransferWorkflowTests {
     verify(participantClient)
         .applyLeg(
             eq("http://localhost:9001"),
-            eq(key + ":rev"),
+            argThat(k -> k != null && k.endsWith("-rev")),
             argThat(req -> txId.equals(req.reversalOf()) && "CREDIT".equals(req.direction())));
   }
 
@@ -564,7 +566,8 @@ class TransferWorkflowTests {
         .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
 
     // Reversal call to source times out
-    when(participantClient.applyLeg(eq("http://localhost:9001"), eq(key + ":rev"), any()))
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
         .thenReturn(PaymentCallOutcome.timedOut("Source reversal timeout"));
 
     HttpResponse<String> res = postTransfer("sandbox", key, payload);
@@ -578,7 +581,7 @@ class TransferWorkflowTests {
     verify(participantClient)
         .applyLeg(
             eq("http://localhost:9001"),
-            eq(key + ":rev"),
+            argThat(k -> k != null && k.endsWith("-rev")),
             argThat(req -> txId.equals(req.reversalOf())));
   }
 
@@ -598,7 +601,8 @@ class TransferWorkflowTests {
         .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
 
     // Reversal call rejected by source bank
-    when(participantClient.applyLeg(eq("http://localhost:9001"), eq(key + ":rev"), any()))
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
         .thenReturn(PaymentCallOutcome.rejected("BE04", "Account frozen"));
 
     HttpResponse<String> res = postTransfer("sandbox", key, payload);
@@ -612,7 +616,7 @@ class TransferWorkflowTests {
     verify(participantClient)
         .applyLeg(
             eq("http://localhost:9001"),
-            eq(key + ":rev"),
+            argThat(k -> k != null && k.endsWith("-rev")),
             argThat(req -> txId.equals(req.reversalOf())));
   }
 
@@ -857,5 +861,92 @@ class TransferWorkflowTests {
             .anyMatch(
                 e -> "STATE_CHANGE".equals(e.get("kind")) && "COMPLETED".equals(e.get("toState")));
     assertThat(hasCompletedStateChange).isTrue();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #114: Client submits 128-char Idempotency-Key and credit is rejected -> reversal key must not exceed 128 characters")
+  void clientWithMax128CharKeyReversalKeyDoesNotOverflow() throws Exception {
+    String maxKey = "k".repeat(128);
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "10.00", "REF-MAX-KEY");
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-debit")), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-max-1"));
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9002"), argThat(k -> k != null && k.endsWith("-credit")), any()))
+        .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
+        .thenReturn(PaymentCallOutcome.completed("rev-max-ok"));
+
+    HttpResponse<String> res = postTransfer("sandbox", maxKey, payload);
+    assertThat(res.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(res.body(), "$.transactionId");
+    assertThat(JsonPath.<String>read(res.body(), "$.state")).isEqualTo("REJECTED");
+
+    verify(participantClient)
+        .applyLeg(
+            eq("http://localhost:9001"),
+            argThat(k -> k != null && k.equals(txId + "-rev") && k.length() <= 128),
+            any());
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #116: Destination responds with HTTP 200 and status ACCEPTED -> held in UNKNOWN, never marked COMPLETED")
+  void participantAcceptedStatusHoldsTransferInUnknown() throws Exception {
+    String key = randomKey();
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "10.00", "REF-ASYNC");
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-debit")), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-ok-async"));
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9002"), argThat(k -> k != null && k.endsWith("-credit")), any()))
+        .thenReturn(
+            PaymentCallOutcome.timedOut("Participant returned asynchronous status: ACCEPTED"));
+
+    HttpResponse<String> res = postTransfer("sandbox", key, payload);
+    assertThat(res.statusCode()).isEqualTo(201);
+    assertThat(JsonPath.<String>read(res.body(), "$.state")).isEqualTo("UNKNOWN");
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #120: Missing or blank reference in TransferRequest returns HTTP 400 with INVALID_REQUEST")
+  void missingOrBlankReferenceReturns400() throws Exception {
+    String key = randomKey();
+    // Missing reference
+    String missingRefPayload =
+        """
+        {
+          "from": { "institutionId": "bank-a", "accountReference": "ACC-1" },
+          "to": { "institutionId": "bank-b", "accountReference": "ACC-2" },
+          "money": { "amount": "10.00", "currency": "USD" }
+        }
+        """;
+    HttpResponse<String> res1 = postTransfer("sandbox", key, missingRefPayload);
+    assertThat(res1.statusCode()).isEqualTo(400);
+    assertThat(JsonPath.<String>read(res1.body(), "$.code")).isEqualTo("INVALID_REQUEST");
+    assertThat(JsonPath.<String>read(res1.body(), "$.message")).contains("reference");
+
+    // Blank reference
+    String blankRefPayload =
+        """
+        {
+          "from": { "institutionId": "bank-a", "accountReference": "ACC-1" },
+          "to": { "institutionId": "bank-b", "accountReference": "ACC-2" },
+          "money": { "amount": "10.00", "currency": "USD" },
+          "reference": "   "
+        }
+        """;
+    HttpResponse<String> res2 = postTransfer("sandbox", randomKey(), blankRefPayload);
+    assertThat(res2.statusCode()).isEqualTo(400);
+    assertThat(JsonPath.<String>read(res2.body(), "$.code")).isEqualTo("INVALID_REQUEST");
+    assertThat(JsonPath.<String>read(res2.body(), "$.message")).contains("reference");
   }
 }

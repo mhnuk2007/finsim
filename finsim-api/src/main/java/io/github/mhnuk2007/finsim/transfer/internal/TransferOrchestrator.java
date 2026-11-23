@@ -602,7 +602,7 @@ public class TransferOrchestrator {
     String destReason =
         rejectionReason != null && !rejectionReason.isBlank() ? rejectionReason : "REJECTED";
     String revTxId = transfer.getId() + "-rev";
-    String revKey = transfer.getIdempotencyKey() + ":rev";
+    String revKey = transfer.getId() + "-rev";
     LegRequestPayload revPayload =
         new LegRequestPayload(
             revTxId,

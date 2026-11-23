@@ -225,7 +225,10 @@ public class TransferService {
     } catch (NumberFormatException ex) {
       throw new InvalidTransferRequestException("Invalid decimal amount: " + req.money().amount());
     }
-    if (req.reference() != null && req.reference().length() > 140) {
+    if (req.reference() == null || req.reference().isBlank()) {
+      throw new InvalidTransferRequestException("'reference' is required and must not be blank.");
+    }
+    if (req.reference().length() > 140) {
       throw new InvalidTransferRequestException("reference must not exceed 140 characters.");
     }
   }

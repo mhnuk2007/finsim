@@ -94,11 +94,27 @@ public class ParticipantClient {
               .retrieve()
               .body(LegResponsePayload.class);
 
-      if (response != null && "COMPLETED".equalsIgnoreCase(response.status())) {
+      if (response == null || response.status() == null || response.status().isBlank()) {
+        return PaymentCallOutcome.timedOut(
+            "Participant returned empty or missing response payload");
+      }
+      String status = response.status().toUpperCase();
+      if ("COMPLETED".equals(status)) {
         return PaymentCallOutcome.completed(response.participantReference());
       }
-      return PaymentCallOutcome.completed(
-          response != null ? response.participantReference() : "ACK");
+      if ("REJECTED".equals(status)) {
+        String reason =
+            response.reasonCode() != null && !response.reasonCode().isBlank()
+                ? response.reasonCode()
+                : "REJECTED";
+        return PaymentCallOutcome.rejected(reason, "Participant returned REJECTED status");
+      }
+      if ("ACCEPTED".equals(status) || "PENDING".equals(status)) {
+        return PaymentCallOutcome.timedOut(
+            "Participant returned asynchronous status: " + response.status());
+      }
+      return PaymentCallOutcome.timedOut(
+          "Unrecognized participant leg status: " + response.status());
     } catch (ResourceAccessException ex) {
       // Timeout or connection failure -> UNKNOWN outcome
       return PaymentCallOutcome.timedOut(ex.getMessage());
