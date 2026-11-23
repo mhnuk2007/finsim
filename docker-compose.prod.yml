@@ -1,0 +1,120 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: finsim-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finsim}
+      POSTGRES_USER: ${POSTGRES_USER:-finsim}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env}
+    expose:
+      - "5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finsim} -d ${POSTGRES_DB:-finsim}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - finsim-net
+
+  bank-a:
+    build:
+      context: .
+      dockerfile: samples/bank-java/Dockerfile
+    container_name: finsim-bank-a
+    restart: unless-stopped
+    expose:
+      - "9001"
+    environment:
+      SERVER_PORT: 9001
+      SPRING_PROFILES_ACTIVE: default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9001/finsim/v1/institution/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - finsim-net
+
+  bank-b:
+    build:
+      context: .
+      dockerfile: samples/bank-java/Dockerfile
+    container_name: finsim-bank-b
+    restart: unless-stopped
+    expose:
+      - "9002"
+    environment:
+      SERVER_PORT: 9002
+      SPRING_PROFILES_ACTIVE: bank-b
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9002/finsim/v1/institution/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - finsim-net
+
+  finsim-api:
+    build:
+      context: .
+      dockerfile: finsim-api/Dockerfile
+    container_name: finsim-api
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-finsim}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-finsim}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in .env}
+      FINSIM_CORS_ALLOWED_ORIGINS: ${FINSIM_CORS_ALLOWED_ORIGINS:-}
+      FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES: ${FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      bank-a:
+        condition: service_healthy
+      bank-b:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q 'UP' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - finsim-net
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: finsim-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN_NAME: ${DOMAIN_NAME:-localhost}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      finsim-api:
+        condition: service_healthy
+    networks:
+      - finsim-net
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  finsim-net:
+    driver: bridge

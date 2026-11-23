@@ -1,0 +1,36 @@
+{$DOMAIN_NAME:localhost} {
+    # Auto-TLS with ACME email if provided
+    {$ACME_EMAIL_DIRECTIVE:}
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+    # Health check endpoint for load balancers / monitoring
+    handle /actuator/health* {
+        reverse_proxy finsim-api:8080
+    }
+
+    # REST APIs
+    handle /api/* {
+        reverse_proxy finsim-api:8080
+    }
+
+    # OpenAPI and Swagger UI documentation
+    handle /swagger-ui/* {
+        reverse_proxy finsim-api:8080
+    }
+    handle /v3/api-docs* {
+        reverse_proxy finsim-api:8080
+    }
+
+    # Root informational response
+    handle {
+        respond "FinSim API Gateway (Production)" 200
+    }
+}

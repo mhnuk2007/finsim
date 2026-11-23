@@ -1,7 +1,11 @@
 package io.github.mhnuk2007.finsim.transfer.internal;
 
+import java.net.InetAddress;
+import java.net.URI;
+import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -13,20 +17,37 @@ import org.springframework.web.client.RestClientResponseException;
 public class ParticipantClient {
 
   private final RestClient restClient;
+  private final boolean allowPrivateAddresses;
 
   public ParticipantClient() {
-    this(Duration.ofSeconds(2), Duration.ofSeconds(4));
+    this(true);
+  }
+
+  public ParticipantClient(
+      @Value("${finsim.registry.allow-private-addresses:true}") boolean allowPrivateAddresses) {
+    this(Duration.ofSeconds(2), Duration.ofSeconds(4), allowPrivateAddresses);
   }
 
   public ParticipantClient(Duration connectTimeout, Duration readTimeout) {
+    this(connectTimeout, readTimeout, true);
+  }
+
+  public ParticipantClient(
+      Duration connectTimeout, Duration readTimeout, boolean allowPrivateAddresses) {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(connectTimeout);
     factory.setReadTimeout(readTimeout);
     this.restClient = RestClient.builder().requestFactory(factory).build();
+    this.allowPrivateAddresses = allowPrivateAddresses;
   }
 
   ParticipantClient(RestClient restClient) {
+    this(restClient, true);
+  }
+
+  ParticipantClient(RestClient restClient, boolean allowPrivateAddresses) {
     this.restClient = restClient;
+    this.allowPrivateAddresses = allowPrivateAddresses;
   }
 
   public enum CallStatus {
@@ -84,6 +105,7 @@ public class ParticipantClient {
       String baseUrl, String idempotencyKey, LegRequestPayload request) {
     String url = normalizeUrl(baseUrl) + "/finsim/v1/payments";
     try {
+      validateTargetSafety(url);
       LegResponsePayload response =
           restClient
               .post()
@@ -115,6 +137,8 @@ public class ParticipantClient {
       }
       return PaymentCallOutcome.timedOut(
           "Unrecognized participant leg status: " + response.status());
+    } catch (SecurityException ex) {
+      return PaymentCallOutcome.rejected("ROUTING_ERROR", ex.getMessage());
     } catch (ResourceAccessException ex) {
       // Timeout or connection failure -> UNKNOWN outcome
       return PaymentCallOutcome.timedOut(ex.getMessage());
@@ -147,14 +171,42 @@ public class ParticipantClient {
             + "?leg="
             + direction.toUpperCase();
     try {
+      validateTargetSafety(url);
       LegResponsePayload response =
           restClient.get().uri(url).retrieve().body(LegResponsePayload.class);
       return Optional.ofNullable(response);
+    } catch (SecurityException ex) {
+      return Optional.empty();
     } catch (RestClientResponseException ex) {
       if (ex.getStatusCode().value() == 404) {
         return Optional.empty();
       }
       throw ex;
+    }
+  }
+
+  private void validateTargetSafety(String targetUrl) {
+    try {
+      URI uri = URI.create(targetUrl);
+      String host = uri.getHost();
+      if (host == null || host.isBlank()) {
+        return;
+      }
+      InetAddress address = InetAddress.getByName(host);
+      if (address.isLinkLocalAddress() || address.isAnyLocalAddress()) {
+        throw new SecurityException(
+            "Outbound participant call rejected: link-local or metadata address is not allowed ("
+                + host
+                + ")");
+      }
+      if (!allowPrivateAddresses && (address.isLoopbackAddress() || address.isSiteLocalAddress())) {
+        throw new SecurityException(
+            "Outbound participant call rejected: private or loopback address is not allowed in production ("
+                + host
+                + ")");
+      }
+    } catch (UnknownHostException ignored) {
+      // DNS lookup failure will be handled by the HTTP client
     }
   }
 

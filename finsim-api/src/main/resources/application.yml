@@ -25,6 +25,8 @@ management:
         include: health,info
 
 finsim:
+  cors:
+    allowed-origins: ${FINSIM_CORS_ALLOWED_ORIGINS:}
   registry:
     allow-private-addresses: true   # local development; set false for shared deployments
     seed:

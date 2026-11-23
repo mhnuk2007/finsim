@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://postgres:5432/finsim
-    username: finsim
-    password: finsim
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/finsim}
+    username: ${SPRING_DATASOURCE_USERNAME:finsim}
+    password: ${SPRING_DATASOURCE_PASSWORD:finsim}
 
 finsim:
   registry:

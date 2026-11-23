@@ -11,6 +11,7 @@ import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.CallStatus
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.LegRequestPayload;
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.MoneyPayload;
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.PaymentCallOutcome;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -199,5 +200,51 @@ class ParticipantClientTest {
     assertThat(outcome.errorMessage())
         .contains("Unrecognized participant leg status: SOME_FUTURE_STATUS");
     mockServer.verify();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #128: Cloud metadata address (169.254.169.254) is rejected without network call")
+  void metadataAddressIsBlocked() {
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-8", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-8", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome =
+        client.applyLeg("http://169.254.169.254:80", "idemp-key-8", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.REJECTED);
+    assertThat(outcome.reasonCode()).isEqualTo("ROUTING_ERROR");
+    assertThat(outcome.errorMessage()).contains("link-local or metadata address is not allowed");
+    // Verify no HTTP call was dispatched to mockServer
+    mockServer.verify();
+
+    Optional<ParticipantClient.LegResponsePayload> query =
+        client.queryLegStatus("http://169.254.169.254:80", "tx-8", "DEBIT");
+    assertThat(query).isEmpty();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #128: In production (allowPrivateAddresses=false), private/loopback addresses are rejected")
+  void privateAddressesBlockedInProduction() {
+    ParticipantClient prodClient = new ParticipantClient(restClientBuilder.build(), false);
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-9", "DEBIT", "ACC-1", new MoneyPayload("10.00", "USD"), "REF-9", null, "SYNTHETIC");
+
+    PaymentCallOutcome outcome =
+        prodClient.applyLeg("http://127.0.0.1:9001", "idemp-key-9", request);
+
+    assertThat(outcome.status()).isEqualTo(CallStatus.REJECTED);
+    assertThat(outcome.reasonCode()).isEqualTo("ROUTING_ERROR");
+    assertThat(outcome.errorMessage())
+        .contains("private or loopback address is not allowed in production");
+    mockServer.verify();
+
+    Optional<ParticipantClient.LegResponsePayload> query =
+        prodClient.queryLegStatus("http://127.0.0.1:9001", "tx-9", "DEBIT");
+    assertThat(query).isEmpty();
   }
 }

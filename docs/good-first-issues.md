@@ -113,6 +113,9 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 | **[#122](https://github.com/mhnuk2007/finsim/issues/122)** | `finsim-cli` | **CLI `resolveUri` context path preservation**: Fix `FinSimClient.resolveUri()` so participant or registry base URLs containing context paths (e.g., `http://host:8080/prefix`) are preserved when appending endpoint paths. |
 | **[#123](https://github.com/mhnuk2007/finsim/issues/123)** | Samples / `bank-java` | **Java sample bank ISO reason codes**: Emit standard ISO 20022 reason codes (`MS03` and `DUPL`) on invalid reversal instead of non-standard internal codes `TX01` and `TX02`. |
 | **[#124](https://github.com/mhnuk2007/finsim/issues/124)** | `finsim-cli` | **`ParticipantVerifier` subpath URL support**: Allow participant URLs containing context paths/subpaths in `ParticipantVerifier.validUrl()`. |
+| **[#127](https://github.com/mhnuk2007/finsim/issues/127)** | `finsim-api` / Security | **Add CORS configuration for web frontend clients**: Configurable `finsim.cors.allowed-origins` (`FINSIM_CORS_ALLOWED_ORIGINS`) with WebMvc preflight handling for web apps. |
+| **[#128](https://github.com/mhnuk2007/finsim/issues/128)** | `finsim-api` / `finsim-registry` / Security | **Production profile with strict SSRF protection and externalized secrets**: Default `allow-private-addresses: false` in `prod`, unconditionally reject cloud metadata (`169.254.169.254`), and externalize datasource passwords. |
+| **[#129](https://github.com/mhnuk2007/finsim/issues/129)** | DevOps / Deploy | **Production Docker Compose stack with Caddy reverse proxy**: `docker-compose.prod.yml` with private database networking, automated Let's Encrypt TLS reverse proxy, and Oracle Cloud deployment guide. |
 
 ## How to Contribute
 

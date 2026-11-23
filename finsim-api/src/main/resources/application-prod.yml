@@ -1,0 +1,11 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/finsim}
+    username: ${SPRING_DATASOURCE_USERNAME:finsim}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+finsim:
+  registry:
+    allow-private-addresses: ${FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES:false}
+    seed:
+      enabled: ${FINSIM_SEED_ENABLED:true}
