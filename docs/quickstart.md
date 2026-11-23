@@ -177,6 +177,9 @@ finsim institutions --id bank-a
 
 # View the seeded sandbox network and its members
 finsim networks --id sandbox
+
+# Discover participant directory and routing capabilities
+finsim directory --network sandbox
 ```
 
 ### Register and Join a Custom Institution
@@ -193,13 +196,23 @@ finsim join --network sandbox --institution merchant-x
 finsim networks --id sandbox
 ```
 
+### Validate Participant Compliance
+
+FinSim includes a conformance test engine that checks participant banks against the 7-phase contract suite:
+
+```bash
+finsim verify --url http://localhost:9001
+```
+
 ---
 
-## 4. Transfer Execution & Fault Injection *(Target Milestone 1 Experience)*
+## 4. Transfer Execution & Fault Injection
 
-The following capabilities represent the target end-to-end payment workflow currently being assembled:
+FinSim allows operators and developers to execute payments, inspect append-only execution traces, inject deterministic faults, and reconcile uncertain outcomes directly from the CLI.
 
-### Transfer orchestration
+### Transfer Orchestration
+
+Initiate a transfer across institutions in the sandbox network:
 
 ```bash
 finsim transfer \
@@ -207,28 +220,60 @@ finsim transfer \
   --from bank-a:ACC-1 --to bank-b:ACC-2 \
   --amount 100.00 --currency USD \
   --reference DEMO-001
+```
 
+*(Tip: Accounts can be specified using compound notation `--from bank-a:ACC-1` or flags `--from bank-a --from-account ACC-1`. Pass `--idempotency-key <key>` or let FinSim automatically generate a unique UUID. Append `--json` or `-j` for raw machine-readable JSON output.)*
+
+FinSim coordinates the workflow:
+1. Validates institution capabilities and network membership.
+2. Executes `DEBIT` on Bank A (`http://localhost:9001/finsim/v1/payments`) with a deterministically derived stage idempotency key.
+3. Executes `CREDIT` on Bank B (`http://localhost:9002/finsim/v1/payments`).
+4. Moves the aggregate state from `CREATED` to `COMPLETED`.
+
+### Inspecting Append-Only Execution Traces
+
+Inspect the full lifecycle trace of the payment:
+
+```bash
 finsim trace <transactionId>
 ```
 
-FinSim orchestrates the debit at `bank-a` and credit at `bank-b` using stage-derived idempotency keys, updating the transfer aggregate state from `CREATED` to `COMPLETED`.
+The trace captures:
+- Aggregate stage transitions (`CREATED` → `ACCEPTED` → `IN_PROGRESS` → `COMPLETED`).
+- Outbound HTTP participant requests, response status codes, and call durations.
+- Injected faults and rule evaluations.
 
 ### Injecting Faults and Handling `UNKNOWN`
 
+In payment networks, network timeouts and uncertain delivery cannot simply be marked "failed" — money may have already left the source account. FinSim makes this failure mode reproducible:
+
 ```bash
-# Simulate a timeout on Bank B
-finsim fault add --target bank-b --type TIMEOUT
+# 1. Simulate a network timeout on Bank B for 1 call
+finsim fault add --target bank-b --type TIMEOUT --times 1
 
-# Attempt transfer: ends in UNKNOWN, not REJECTED
-finsim transfer --network sandbox --from bank-a:ACC-1 --to bank-b:ACC-2 --amount 50.00 --currency USD --reference DEMO-002
+# (Other fault types include DELAY with --delay <ms> and DUPLICATE_DELIVERY, with optional --probability and --seed)
 
-# Inspect the trace: shows debit succeeded, credit timed out, state is UNKNOWN
+# 2. Verify registered fault rules
+finsim fault list
+
+# 3. Attempt a transfer: ends in UNKNOWN (never falsely marked FAILED or REJECTED)
+finsim transfer \
+  --network sandbox \
+  --from bank-a:ACC-1 --to bank-b:ACC-2 \
+  --amount 50.00 --currency USD \
+  --reference DEMO-002
+
+# 4. Inspect the trace: shows debit succeeded, credit timed out, and transfer state is UNKNOWN
 finsim trace <transactionId>
 
-# Retrying while UNKNOWN is blocked with 409 RECONCILIATION_REQUIRED
-# Remove the fault and resolve the transfer via participant status query:
+# 5. Retrying while UNKNOWN is blocked with 409 RECONCILIATION_REQUIRED
+# Remove the fault rule:
 finsim fault remove <faultId>
+
+# 6. Reconcile the uncertain transfer via participant status query (ADR 0001):
 finsim resolve <transactionId>
+
+# 7. Check the final trace: shows the query outcome and transition to COMPLETED or REJECTED
 finsim trace <transactionId>
 ```
 

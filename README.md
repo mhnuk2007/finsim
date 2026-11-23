@@ -42,6 +42,7 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | Transfer trace recording: stages, state changes, participant calls, injected faults, `finsim trace` | Done |
 | Multi-container Docker Compose quickstart: PostgreSQL 17, FinSim API, Bank A, Bank B, healthchecks | Done |
 | Dynamic network directory discovery: `GET /api/v1/networks/{id}/directory`, CLI `finsim directory` | Done |
+| CLI transfer, resolve, & fault management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove` | Done |
 | Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
 | Milestone 3: disputes, reconciliation, scenario replay | Planned |
@@ -88,18 +89,30 @@ docker compose up -d postgres
 ./gradlew :finsim-cli:run --args="networks --id sandbox --json"
 ```
 
-### Target payments experience (Milestone 1)
+### Execute Transfers & Inject Faults via the CLI
 
-Transfer orchestration and fault injection commands will connect these components end to end:
+FinSim's CLI orchestrates transfers, queries execution traces, injects deterministic faults, and resolves pending transactions:
 
 ```bash
-# Execute payment across institutions
-finsim transfer --network sandbox --from bank-a:ACC-1 --to bank-b:ACC-2 --amount 100.00 --currency USD
+# 1. Execute payment between Bank A and Bank B
+finsim transfer --network sandbox --from bank-a:ACC-1 --to bank-b:ACC-2 --amount 100.00 --currency USD --reference DEMO-001
+
+# 2. Inspect the append-only transfer execution trace
 finsim trace <transactionId>
 
-# Inject a timeout on bank-b and observe UNKNOWN state
-finsim fault add --target bank-b --type TIMEOUT
-finsim transfer ...        # ends in UNKNOWN, not FAILED
+# 3. Inject a deterministic network timeout on Bank B
+finsim fault add --target bank-b --type TIMEOUT --times 1
+
+# 4. Attempt transfer: moves safely to UNKNOWN (never falsely marked FAILED or REJECTED)
+finsim transfer --network sandbox --from bank-a:ACC-1 --to bank-b:ACC-2 --amount 50.00 --currency USD
+
+# 5. List active fault rules and remove the timeout
+finsim fault list
+finsim fault remove <faultId>
+
+# 6. Reconcile the hung transfer via participant status query
+finsim resolve <transactionId>
+finsim trace <transactionId>
 ```
 
 ## Core concepts
