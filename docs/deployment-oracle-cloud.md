@@ -140,7 +140,18 @@ docker compose version
 
    # Allowed CORS origins for web dashboard (e.g., Vercel)
    FINSIM_CORS_ALLOWED_ORIGINS=https://finsim.vercel.app,http://localhost:3000
+
+   # Registry SSRF policy (set to true when testing with internal container participants bank-a/bank-b on Docker bridge network; see issue #136)
+   FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES=true
    ```
+
+> [!TIP]
+> **Swap Space for Micro Instances (`VM.Standard.E2.1.Micro`):**
+> If deploying on a 1 GB RAM Micro instance, configure 2 GB of swap memory to prevent the Linux OOM killer during Maven/Gradle builds or JVM startup:
+> ```bash
+> sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
+> echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+> ```
 
 4. Build and start the production stack:
    ```bash
