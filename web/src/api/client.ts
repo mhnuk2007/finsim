@@ -12,10 +12,20 @@ import type {
   TransferResponse,
 } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/+$/, "");
+export const API_BASE_STORAGE_KEY = "finsim.apiBaseUrl";
 
-function apiUrl(path: string): string {
-  return `${API_BASE}${path}`;
+export function getStoredApiBaseUrl(): string {
+  if (typeof window !== "undefined" && window.localStorage) {
+    const val = window.localStorage.getItem(API_BASE_STORAGE_KEY);
+    if (val !== null) return val;
+  }
+  return import.meta.env.VITE_API_BASE_URL ?? "";
+}
+
+export function setStoredApiBaseUrl(url: string): void {
+  if (typeof window !== "undefined" && window.localStorage) {
+    window.localStorage.setItem(API_BASE_STORAGE_KEY, url);
+  }
 }
 
 export class ApiClientError extends Error {
@@ -27,33 +37,6 @@ export class ApiClientError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(apiUrl(path), {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
-  });
-
-  if (res.status === 204) {
-    return undefined as T;
-  }
-
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!res.ok) {
-    const err = data as ErrorResponse | null;
-    throw new ApiClientError(
-      res.status,
-      err?.code ?? `HTTP_${res.status}`,
-      err?.message ?? res.statusText ?? "Request failed",
-    );
-  }
-  return data as T;
 }
 
 function wrapDemo<T>(fn: () => T): Promise<T> {
@@ -72,10 +55,57 @@ function wrapDemo<T>(fn: () => T): Promise<T> {
   });
 }
 
-export function createFinSimApi(mode: ConnectionMode) {
+export function createFinSimApi(mode: ConnectionMode, baseUrlOverride?: string) {
   const isDemo = mode === "demo";
+  const rawBase =
+    baseUrlOverride !== undefined ? baseUrlOverride : getStoredApiBaseUrl();
+  const apiBase = rawBase.replace(/\/+$/, "");
+
+  function apiUrl(path: string): string {
+    return `${apiBase}${path}`;
+  }
+
+  async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
+    const res = await fetch(apiUrl(path), {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...init?.headers,
+      },
+    });
+
+    if (res.status === 204) {
+      return undefined as T;
+    }
+
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+
+    if (!res.ok) {
+      const err = data as ErrorResponse | null;
+      throw new ApiClientError(
+        res.status,
+        err?.code ?? `HTTP_${res.status}`,
+        err?.message ?? res.statusText ?? "Request failed",
+      );
+    }
+    return data as T;
+  }
 
   return {
+    async checkHealth(): Promise<boolean> {
+      if (isDemo) return true;
+      try {
+        const res = await fetch(apiUrl("/actuator/health"), {
+          method: "GET",
+          headers: { Accept: "application/json" },
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+
     listInstitutions(): Promise<Institution[]> {
       return isDemo
         ? wrapDemo(() => demoEngine.listInstitutions())
@@ -100,16 +130,21 @@ export function createFinSimApi(mode: ConnectionMode) {
     getNetworkDirectory(networkId: string): Promise<NetworkDirectory> {
       return isDemo
         ? wrapDemo(() => demoEngine.getNetworkDirectory(networkId))
-        : requestJson<NetworkDirectory>(`/api/v1/networks/${encodeURIComponent(networkId)}/directory`);
+        : requestJson<NetworkDirectory>(
+            `/api/v1/networks/${encodeURIComponent(networkId)}/directory`,
+          );
     },
 
     addNetworkMember(networkId: string, institutionId: string): Promise<Network> {
       return isDemo
         ? wrapDemo(() => demoEngine.addNetworkMember(networkId, institutionId))
-        : requestJson<Network>(`/api/v1/networks/${encodeURIComponent(networkId)}/members`, {
-            method: "POST",
-            body: JSON.stringify({ institutionId }),
-          });
+        : requestJson<Network>(
+            `/api/v1/networks/${encodeURIComponent(networkId)}/members`,
+            {
+              method: "POST",
+              body: JSON.stringify({ institutionId }),
+            },
+          );
     },
 
     listFaults(): Promise<FaultRuleDto[]> {
@@ -155,7 +190,9 @@ export function createFinSimApi(mode: ConnectionMode) {
     getTransfer(transactionId: string): Promise<TransferResponse> {
       return isDemo
         ? wrapDemo(() => demoEngine.getTransfer(transactionId))
-        : requestJson<TransferResponse>(`/api/v1/transfers/${encodeURIComponent(transactionId)}`);
+        : requestJson<TransferResponse>(
+            `/api/v1/transfers/${encodeURIComponent(transactionId)}`,
+          );
     },
 
     getTrace(transactionId: string): Promise<TraceResponse> {

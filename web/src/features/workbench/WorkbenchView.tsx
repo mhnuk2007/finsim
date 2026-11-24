@@ -1,9 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, RefreshCw, ShieldAlert, Zap } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Copy,
+  Play,
+  RefreshCw,
+  Repeat,
+  ShieldAlert,
+} from "lucide-react";
 import { useState } from "react";
 import { ApiClientError, createFinSimApi } from "@/api/client";
 import type { ConnectionMode, TransferResponse } from "@/api/types";
 import { FaultBadge } from "@/components/shared/StateBadge";
+import { useToast } from "@/components/shared/Toast";
 import { TraceWaterfall } from "@/features/traces/TraceWaterfall";
 import { TopologyCanvas } from "@/features/workbench/TopologyCanvas";
 import { formatMoney, generateIdempotencyKey } from "@/lib/utils";
@@ -24,6 +33,7 @@ export function WorkbenchView({
 }: WorkbenchViewProps) {
   const api = createFinSimApi(mode);
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
 
   const [fromInst, setFromInst] = useState("bank-a");
   const [fromAcc, setFromAcc] = useState("ACC-1");
@@ -56,6 +66,16 @@ export function WorkbenchView({
     queryClient.invalidateQueries({ queryKey: ["trace", mode] });
   };
 
+  const clearAllFaults = async () => {
+    const current = faultsQuery.data ?? [];
+    for (const f of current) {
+      if (f.faultId) {
+        await api.deleteFault(f.faultId);
+      }
+    }
+    queryClient.invalidateQueries({ queryKey: ["faults", mode] });
+  };
+
   const transferMutation = useMutation({
     mutationFn: () =>
       api.createTransfer(networkId, idempotencyKey, {
@@ -68,12 +88,59 @@ export function WorkbenchView({
       setErrorMsg(null);
       onTransferCreated(tx);
       refreshAll();
+      if (tx.state === "COMPLETED") {
+        showToast(
+          `Transfer ${tx.transactionId} completed (${formatMoney(tx.money.amount, tx.money.currency)})`,
+          "success",
+        );
+      } else if (tx.state === "UNKNOWN") {
+        showToast(
+          `Transfer ${tx.transactionId} entered UNKNOWN state (reconciliation required)`,
+          "warning",
+        );
+      } else {
+        showToast(`Transfer ${tx.transactionId} state: ${tx.state}`, "info");
+      }
     },
     onError: (err) => {
       if (err instanceof ApiClientError) {
-        setErrorMsg(`${err.status} ${err.code}: ${err.message}`);
+        const msg = `${err.status} ${err.code}: ${err.message}`;
+        setErrorMsg(msg);
+        showToast(msg, "error");
       } else {
-        setErrorMsg(err instanceof Error ? err.message : "Transfer failed");
+        const msg = err instanceof Error ? err.message : "Transfer failed";
+        setErrorMsg(msg);
+        showToast(msg, "error");
+      }
+    },
+  });
+
+  const replayMutation = useMutation({
+    mutationFn: () =>
+      api.createTransfer(networkId, idempotencyKey, {
+        from: { institutionId: fromInst, accountReference: fromAcc },
+        to: { institutionId: toInst, accountReference: toAcc },
+        money: { amount, currency },
+        reference,
+      }),
+    onSuccess: (tx) => {
+      setErrorMsg(null);
+      onTransferCreated(tx);
+      refreshAll();
+      showToast(
+        `Replay 200 OK: returned existing transfer ${tx.transactionId}`,
+        "success",
+      );
+    },
+    onError: (err) => {
+      if (err instanceof ApiClientError) {
+        const msg = `${err.status} ${err.code}: ${err.message}`;
+        setErrorMsg(msg);
+        showToast(msg, "error");
+      } else {
+        const msg = err instanceof Error ? err.message : "Replay failed";
+        setErrorMsg(msg);
+        showToast(msg, "error");
       }
     },
   });
@@ -84,9 +151,12 @@ export function WorkbenchView({
       setErrorMsg(null);
       onTransferCreated(tx);
       refreshAll();
+      showToast(`Transfer ${tx.transactionId} resolved (${tx.state})`, "success");
     },
     onError: (err) => {
-      setErrorMsg(err instanceof Error ? err.message : "Resolve failed");
+      const msg = err instanceof Error ? err.message : "Resolve failed";
+      setErrorMsg(msg);
+      showToast(msg, "error");
     },
   });
 
@@ -95,6 +165,7 @@ export function WorkbenchView({
     const existing = (faultsQuery.data ?? []).find((f) => f.target === institutionId);
     if (existing?.faultId) {
       await api.deleteFault(existing.faultId);
+      showToast(`Cleared fault on ${institutionId}`, "info");
     } else {
       await api.addFault({
         target: institutionId,
@@ -102,32 +173,139 @@ export function WorkbenchView({
         times: 1,
         probability: 1.0,
       });
+      showToast(`Injected 1x TIMEOUT fault on ${institutionId}`, "warning");
     }
     queryClient.invalidateQueries({ queryKey: ["faults", mode] });
   };
 
-  const runTimeoutScenario = async () => {
+  const runHappyPathPreset = async () => {
     setErrorMsg(null);
-    const freshKey = generateIdempotencyKey("chaos");
-    setIdempotencyKey(freshKey);
-    await api.addFault({
-      target: toInst,
-      type: "TIMEOUT",
-      times: 1,
-      probability: 1.0,
-    });
-    queryClient.invalidateQueries({ queryKey: ["faults", mode] });
     try {
+      await clearAllFaults();
+      setFromInst("bank-a");
+      setFromAcc("ACC-1");
+      setToInst("bank-b");
+      setToAcc("ACC-2");
+      setAmount("100.00");
+      setCurrency("USD");
+      setReference("HAPPY-PATH");
+      const freshKey = generateIdempotencyKey("happy");
+      setIdempotencyKey(freshKey);
+
       const tx = await api.createTransfer(networkId, freshKey, {
-        from: { institutionId: fromInst, accountReference: fromAcc },
-        to: { institutionId: toInst, accountReference: toAcc },
-        money: { amount: "50.00", currency },
+        from: { institutionId: "bank-a", accountReference: "ACC-1" },
+        to: { institutionId: "bank-b", accountReference: "ACC-2" },
+        money: { amount: "100.00", currency: "USD" },
+        reference: "HAPPY-PATH",
+      });
+      onTransferCreated(tx);
+      refreshAll();
+      showToast(`Transfer ${tx.transactionId} completed ($100.00)`, "success");
+    } catch (err) {
+      const msg =
+        err instanceof ApiClientError
+          ? `${err.status} ${err.code}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : "Preset failed";
+      setErrorMsg(msg);
+      showToast(msg, "error");
+    }
+  };
+
+  const runTimeoutPreset = async () => {
+    setErrorMsg(null);
+    try {
+      await clearAllFaults();
+      await api.addFault({
+        target: "bank-b",
+        type: "TIMEOUT",
+        times: 1,
+        probability: 1.0,
+      });
+      queryClient.invalidateQueries({ queryKey: ["faults", mode] });
+
+      setFromInst("bank-a");
+      setFromAcc("ACC-1");
+      setToInst("bank-b");
+      setToAcc("ACC-2");
+      setAmount("50.00");
+      setCurrency("USD");
+      setReference("TIMEOUT-DEMO");
+      const freshKey = generateIdempotencyKey("chaos");
+      setIdempotencyKey(freshKey);
+
+      const tx = await api.createTransfer(networkId, freshKey, {
+        from: { institutionId: "bank-a", accountReference: "ACC-1" },
+        to: { institutionId: "bank-b", accountReference: "ACC-2" },
+        money: { amount: "50.00", currency: "USD" },
         reference: "TIMEOUT-DEMO",
       });
       onTransferCreated(tx);
       refreshAll();
+      if (tx.state === "UNKNOWN") {
+        showToast(
+          `Transfer ${tx.transactionId} hit UNKNOWN state (reconciliation required)`,
+          "warning",
+        );
+      } else {
+        showToast(`Transfer ${tx.transactionId} finished with state ${tx.state}`, "info");
+      }
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Scenario failed");
+      const msg =
+        err instanceof ApiClientError
+          ? `${err.status} ${err.code}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : "Scenario failed";
+      setErrorMsg(msg);
+      showToast(msg, "error");
+    }
+  };
+
+  const runDuplicateDeliveryPreset = async () => {
+    setErrorMsg(null);
+    try {
+      await clearAllFaults();
+      await api.addFault({
+        target: "bank-b",
+        type: "DUPLICATE_DELIVERY",
+        times: 1,
+        probability: 1.0,
+      });
+      queryClient.invalidateQueries({ queryKey: ["faults", mode] });
+
+      setFromInst("bank-a");
+      setFromAcc("ACC-1");
+      setToInst("bank-b");
+      setToAcc("ACC-2");
+      setAmount("25.00");
+      setCurrency("USD");
+      setReference("DUP-DELIVERY");
+      const freshKey = generateIdempotencyKey("dup");
+      setIdempotencyKey(freshKey);
+
+      const tx = await api.createTransfer(networkId, freshKey, {
+        from: { institutionId: "bank-a", accountReference: "ACC-1" },
+        to: { institutionId: "bank-b", accountReference: "ACC-2" },
+        money: { amount: "25.00", currency: "USD" },
+        reference: "DUP-DELIVERY",
+      });
+      onTransferCreated(tx);
+      refreshAll();
+      showToast(
+        `Transfer ${tx.transactionId} completed ($25.00) with duplicate delivery verified`,
+        "success",
+      );
+    } catch (err) {
+      const msg =
+        err instanceof ApiClientError
+          ? `${err.status} ${err.code}: ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : "Scenario failed";
+      setErrorMsg(msg);
+      showToast(msg, "error");
     }
   };
 
@@ -137,26 +315,47 @@ export function WorkbenchView({
 
   return (
     <div className="space-y-4">
-      {/* Top Row: Topology + Quick Chaos */}
+      {/* Top Row: Topology + Guided Chaos Presets */}
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-2 lg:col-span-2">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Network Topology — <span className="font-mono">{networkId}</span>
               </h2>
               <p className="text-xs text-slate-500">
-                Click any bank node to toggle a 1x <span className="font-mono">TIMEOUT</span> fault
+                Click bank to toggle TIMEOUT or pick a chaos preset:
               </p>
             </div>
-            <button
-              type="button"
-              onClick={runTimeoutScenario}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-amber-400"
-            >
-              <Zap className="h-3.5 w-3.5" />
-              1-Click: Timeout → UNKNOWN
-            </button>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={runHappyPathPreset}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/20 dark:text-emerald-300"
+                title="Clears active faults & sends $100.00 bank-a -> bank-b"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                Happy Path ($100)
+              </button>
+              <button
+                type="button"
+                onClick={runTimeoutPreset}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-300"
+                title="Injects 1x TIMEOUT on bank-b & sends $50.00 -> UNKNOWN"
+              >
+                <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                Timeout → UNKNOWN ($50)
+              </button>
+              <button
+                type="button"
+                onClick={runDuplicateDeliveryPreset}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/30 bg-violet-500/10 px-2.5 py-1.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-500/20 dark:text-violet-300"
+                title="Injects 1x DUPLICATE_DELIVERY on bank-b & sends $25.00"
+              >
+                <Copy className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
+                Duplicate Delivery ($25)
+              </button>
+            </div>
           </div>
 
           <TopologyCanvas
@@ -164,6 +363,7 @@ export function WorkbenchView({
             faults={faults}
             activeTransfer={activeTransfer}
             onQuickToggleTimeout={quickToggleTimeout}
+            balances={demoBalances ?? undefined}
           />
 
           {demoBalances && (
@@ -307,15 +507,27 @@ export function WorkbenchView({
             )}
           </div>
 
-          <button
-            type="button"
-            disabled={transferMutation.isPending}
-            onClick={() => transferMutation.mutate()}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-500 disabled:opacity-50"
-          >
-            <Play className="h-3.5 w-3.5" />
-            {transferMutation.isPending ? "Orchestrating..." : "Send Transfer"}
-          </button>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={transferMutation.isPending || replayMutation.isPending}
+              onClick={() => transferMutation.mutate()}
+              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:opacity-50"
+            >
+              <Play className="h-3.5 w-3.5" />
+              {transferMutation.isPending ? "Orchestrating..." : "Send Transfer"}
+            </button>
+            <button
+              type="button"
+              disabled={transferMutation.isPending || replayMutation.isPending}
+              onClick={() => replayMutation.mutate()}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              title="Re-submit using current Idempotency-Key"
+            >
+              <Repeat className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+              Replay Key
+            </button>
+          </div>
         </div>
       </div>
 
@@ -330,7 +542,11 @@ export function WorkbenchView({
       ) : (
         <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-800">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-            Send a transfer or click <span className="font-semibold text-amber-500">1-Click: Timeout → UNKNOWN</span> above to watch FinSim's execution trace and ADR 0001 reconciliation.
+            Send a transfer or select a preset above (e.g.{" "}
+            <span className="font-semibold text-amber-600 dark:text-amber-400">
+              Timeout → UNKNOWN
+            </span>
+            ) to observe execution traces and ADR 0001 forward-recovery.
           </p>
         </div>
       )}

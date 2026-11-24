@@ -11,6 +11,23 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("@xyflow")) {
+            return "xyflow";
+          }
+          if (id.includes("@tanstack")) {
+            return "tanstack-query";
+          }
+          if (id.includes("lucide-react")) {
+            return "lucide";
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 3000,
     proxy: {
