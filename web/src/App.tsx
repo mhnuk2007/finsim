@@ -195,15 +195,6 @@ function AppContent() {
         </div>
 
         {renderNavLinks()}
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950">
-          <div className="font-semibold text-slate-700 dark:text-slate-300">
-            Milestone 1 Scope
-          </div>
-          <p className="mt-0.5 leading-relaxed">
-            Connected to <span className="font-mono">finsim/v1</span> transfers, faults, traces &amp; directory.
-          </p>
-        </div>
       </aside>
 
       {/* Desktop Persistent Sidebar */}
@@ -219,15 +210,6 @@ function AppContent() {
         </div>
 
         {renderNavLinks()}
-
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-[11px] text-slate-500 dark:border-slate-800 dark:bg-slate-950">
-          <div className="font-semibold text-slate-700 dark:text-slate-300">
-            Milestone 1 Scope
-          </div>
-          <p className="mt-0.5 leading-relaxed">
-            Connected to <span className="font-mono">finsim/v1</span> transfers, faults, traces &amp; directory.
-          </p>
-        </div>
       </aside>
 
       {/* Main Content */}

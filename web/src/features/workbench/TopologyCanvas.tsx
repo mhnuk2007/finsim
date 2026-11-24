@@ -11,7 +11,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Building2, ShieldAlert, Workflow } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FaultRuleDto, Institution, TransferResponse } from "@/api/types";
 import { cn, formatMoney } from "@/lib/utils";
 
@@ -161,6 +161,25 @@ export function TopologyCanvas({
   onQuickToggleTimeout,
   balances,
 }: TopologyCanvasProps) {
+  const [isDark, setIsDark] = useState(() =>
+    typeof document !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : true,
+  );
+
+  useEffect(() => {
+    const updateTheme = () => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
+    updateTheme();
+    const observer = new MutationObserver(updateTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
   const { nodes, edges } = useMemo(() => {
     const faultsByTarget = new Map<string, FaultRuleDto[]>();
     for (const f of faults) {
@@ -255,7 +274,9 @@ export function TopologyCanvas({
             ? "#f43f5e"
             : isSource || isDest
               ? "#10b981"
-              : "#94a3b8";
+              : isDark
+                ? "#475569"
+                : "#94a3b8";
 
       builtEdges.push({
         id: `e-${inst.id}-hub`,
@@ -265,8 +286,18 @@ export function TopologyCanvas({
         targetHandle: isLeft ? "hub-left-tgt" : "left-tgt",
         animated: Boolean(isSource || isDest),
         label: isSource ? "DEBIT" : isDest ? "CREDIT" : undefined,
-        labelStyle: { fill: "#0369a1", fontSize: 10, fontFamily: "JetBrains Mono", fontWeight: 700 },
-        labelBgStyle: { fill: "#e0f2fe", fillOpacity: 0.95 },
+        labelStyle: {
+          fill: isDark ? "#38bdf8" : "#0369a1",
+          fontSize: 10,
+          fontFamily: "JetBrains Mono",
+          fontWeight: 700,
+        },
+        labelBgStyle: {
+          fill: isDark ? "#0f172a" : "#e0f2fe",
+          fillOpacity: 0.95,
+          stroke: isDark ? "#0284c7" : "#bae6fd",
+          strokeWidth: 1,
+        },
         labelBgPadding: [4, 2],
         labelBgBorderRadius: 4,
         style: { stroke: strokeColor, strokeWidth: isSource || isDest ? 2.5 : 1.5 },
@@ -278,7 +309,7 @@ export function TopologyCanvas({
     });
 
     return { nodes: builtNodes, edges: builtEdges };
-  }, [participants, faults, activeTransfer, onQuickToggleTimeout, balances]);
+  }, [participants, faults, activeTransfer, onQuickToggleTimeout, balances, isDark]);
 
   return (
     <div className="h-[285px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
@@ -286,6 +317,7 @@ export function TopologyCanvas({
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        colorMode={isDark ? "dark" : "light"}
         fitView
         fitViewOptions={{ padding: 0.18 }}
         nodesDraggable={false}
@@ -294,7 +326,7 @@ export function TopologyCanvas({
         panOnDrag={false}
         zoomOnScroll={false}
       >
-        <Background color="#94a3b8" gap={18} size={1} />
+        <Background color={isDark ? "#334155" : "#cbd5e1"} gap={18} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
