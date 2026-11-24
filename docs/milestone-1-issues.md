@@ -128,10 +128,10 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 
 ## Web & Frontend
 
-**25. Next.js 16 web workspace scaffold, design system and base shell** `[milestone-1]` `[gfi]`
-Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript, Lucide icons, financial semantic color tokens, marketing layout shell (`/(marketing)`), simulation cockpit shell (`/(cockpit)`), and zero-backend mock fixtures.
-*Done when:* `npm run dev` and `npm run build` succeed, `/` renders the marketing shell, and `/app` renders the simulation cockpit shell.
-*Issue:* [#29](https://github.com/mhnuk2007/finsim/issues/29)
+**25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[in-progress]`
+- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), and `caddy:2-alpine` Dockerfile. (*In progress by @sunilk429*).
+- **Phase 2 (`site/`):** Dedicated Next.js Marketing & Docs Hub for landing page, SEO, and educational guides.
+*Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 
 ---
 
@@ -141,6 +141,13 @@ Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeS
 `docker compose up` brings up FinSim, Postgres, both banks, and the seeded network.
 *Status:* Completed in [#19](https://github.com/mhnuk2007/finsim/issues/19). Multi-stage Dockerfiles for `finsim-api` and `samples/bank-java` (`bank-a` and `bank-b`), root `docker-compose.yml` and `deploy/docker-compose.yml` orchestrating PostgreSQL 17, `finsim-api` (8080), `bank-a` (9001), and `bank-b` (9002), with `docker` Spring profile and healthchecks.
 *Issue:* [#19](https://github.com/mhnuk2007/finsim/issues/19)
+
+**27. Cloud deployment & security hardening** `[milestone-1]` `[done]`
+Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS reverse proxy (`deploy/caddy/Caddyfile`), CORS control (`FINSIM_CORS_ALLOWED_ORIGINS`), and SSRF/metadata guards. Follow-up hardening items tracked:
+- [#136](https://github.com/mhnuk2007/finsim/issues/136): Production Docker Compose stack fails all sample bank transfers due to SSRF private address rejection on Docker bridge network
+- [#137](https://github.com/mhnuk2007/finsim/issues/137): `ParticipantClient.validateTargetSafety` SSRF protection bypasses IPv6 Unique Local Addresses (`fc00::/7`) and Carrier-Grade NAT (`100.64.0.0/10`)
+- [#138](https://github.com/mhnuk2007/finsim/issues/138): Caddy reverse proxy route `/swagger-ui/*` fails to match `/swagger-ui.html`
+- [#139](https://github.com/mhnuk2007/finsim/issues/139): `docker-compose.prod.yml` caddy service fails to pass `ACME_EMAIL` to container
 
 **27. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
 Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, and `README.md` synchronized with the actual codebase capabilities.
