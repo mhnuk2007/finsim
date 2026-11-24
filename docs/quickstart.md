@@ -76,7 +76,7 @@ On startup, Flyway automatically runs database migrations (`V1__baseline.sql`, `
 
 ## 2. Start the Sample Banks
 
-FinSim includes independent in-memory sample banks implementing the `finsim/v1` participant contract in Java (`samples/bank-java`), Python (`samples/bank-python`), and Node.js/TypeScript (`samples/bank-node`).
+FinSim includes independent in-memory sample banks implementing the `finsim/v1` participant contract in Java (`samples/bank-java`), Python (`samples/bank-python`), Node.js/TypeScript (`samples/bank-node`), and Go (`samples/bank-go`).
 
 ### Option A: Java Sample Banks (Bank A & Bank B)
 
@@ -114,6 +114,15 @@ npm ci
 npm start                  # starts on port 9012 (or PORT=9010 npm start)
 ```
 
+### Option D: Go Sample Bank
+
+FinSim also provides a standalone Go participant bank on port 9004 using only the Go standard library (`net/http`):
+
+```bash
+cd samples/bank-go
+go run .                   # starts on port 9004 (or PORT=9010 go run .)
+```
+
 ### Verify Participant Endpoints
 
 Verify their participant contract endpoints:
@@ -124,11 +133,13 @@ curl http://localhost:9001/finsim/v1/institution/health
 curl http://localhost:9002/finsim/v1/institution/health
 curl http://localhost:9003/finsim/v1/institution/health
 curl http://localhost:9012/finsim/v1/institution/health
+curl http://localhost:9004/finsim/v1/institution/health
 
 # Capabilities
 curl http://localhost:9001/finsim/v1/institution/capabilities
 curl http://localhost:9003/finsim/v1/institution/capabilities
 curl http://localhost:9012/finsim/v1/institution/capabilities
+curl http://localhost:9004/finsim/v1/institution/capabilities
 
 # Inspect initial synthetic balances (Java banks expose /sample/accounts)
 curl http://localhost:9001/sample/accounts

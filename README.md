@@ -85,7 +85,7 @@ docker compose up -d postgres
 ./gradlew :sample-bank-java:bootRun
 ./gradlew :sample-bank-java:bootRun --args="--spring.profiles.active=bank-b"
 
-# (Optional: run the Python bank on port 9003 in samples/bank-python, or Node bank on port 9012 in samples/bank-node)
+# (Optional: run the Python bank on port 9003 in samples/bank-python, Node bank on port 9012 in samples/bank-node, or Go bank on port 9004 in samples/bank-go)
 
 # 4. Query seeded institutions and the sandbox network using the CLI (supports --json / -j)
 ./gradlew :finsim-cli:run --args="institutions"

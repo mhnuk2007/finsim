@@ -112,6 +112,11 @@ FastAPI participant bank in `samples/bank-python` implementing the `finsim/v1` c
 Same behavior in Node/TypeScript, in a separate directory, no shared code.
 *Status:* Completed by @maestro-00 in [#41](https://github.com/mhnuk2007/finsim/pull/41). Closed [#11](https://github.com/mhnuk2007/finsim/issues/11).
 
+**21b. Sample bank in Go** `[milestone-1]` `[done]`
+In-memory participant bank in `samples/bank-go` implementing the `finsim/v1` contract using only the Go standard library (`net/http`), exact `int64` scaled to $10^{-8}$ units, and `sync.RWMutex`.
+*Status:* Completed by @sethmfuller in [#141](https://github.com/mhnuk2007/finsim/pull/141). Closed [#13](https://github.com/mhnuk2007/finsim/issues/13).
+
+
 **22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[done]`
 Commands that wrap the network API with human-readable output and `--json` raw machine-readable flag support.
 *Status:* Completed. Full suite of CLI commands implemented: `register`, `institutions`, `networks`, `join`, `directory`, `verify`, `transfer` (supporting `--from`, `--to`, `--amount`, `--currency`, `--reference`), `trace` (`finsim trace <id>`), `resolve` (`finsim resolve <id>`), and `fault` (`finsim fault add/list/remove`), with `--json` / `-j` and `-h` / `--help` flags across all commands.
