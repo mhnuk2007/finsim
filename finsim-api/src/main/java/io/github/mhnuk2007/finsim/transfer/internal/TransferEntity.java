@@ -19,6 +19,7 @@ import jakarta.persistence.Version;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 @Entity
 @Table(name = "transfers")
@@ -116,7 +117,15 @@ public class TransferEntity {
     return entity;
   }
 
-  public void updateFrom(Transfer transfer) {
+  public boolean updateFrom(Transfer transfer) {
+    boolean changed =
+        !Objects.equals(this.state, transfer.getState())
+            || !Objects.equals(this.currentStage, transfer.getCurrentStage())
+            || !Objects.equals(this.reasonCode, transfer.getReasonCode())
+            || !Objects.equals(this.emittedBy, transfer.getEmittedBy())
+            || !Objects.equals(this.pendingAction, transfer.getPendingAction())
+            || this.needsManualReview != transfer.isNeedsManualReview()
+            || !Objects.equals(this.updatedAt, transfer.getUpdatedAt());
     this.state = transfer.getState();
     this.currentStage = transfer.getCurrentStage();
     this.reasonCode = transfer.getReasonCode();
@@ -124,6 +133,7 @@ public class TransferEntity {
     this.pendingAction = transfer.getPendingAction();
     this.needsManualReview = transfer.isNeedsManualReview();
     this.updatedAt = transfer.getUpdatedAt();
+    return changed;
   }
 
   public Transfer toDomain(List<TransferStageEntity> stageEntities) {

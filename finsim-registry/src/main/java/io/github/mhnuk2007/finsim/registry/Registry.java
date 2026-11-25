@@ -169,7 +169,8 @@ public class Registry {
     if (c.capabilities() == null || c.capabilities().isEmpty()) {
       throw new InvalidInstitution("At least one capability must be declared.");
     }
-    BaseUrlValidator.validate(c.baseUrl(), properties.allowPrivateAddresses());
+    BaseUrlValidator.validate(
+        c.baseUrl(), properties.allowPrivateAddresses(), properties.internalHosts());
   }
 
   /** Sorted copy, used by entities when building public records. */

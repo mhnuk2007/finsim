@@ -1,6 +1,7 @@
 package io.github.mhnuk2007.finsim.transfer.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -11,7 +12,9 @@ import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.CallStatus
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.LegRequestPayload;
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.MoneyPayload;
 import io.github.mhnuk2007.finsim.transfer.internal.ParticipantClient.PaymentCallOutcome;
-import java.util.Optional;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -219,14 +222,14 @@ class ParticipantClientTest {
     // Verify no HTTP call was dispatched to mockServer
     mockServer.verify();
 
-    Optional<ParticipantClient.LegResponsePayload> query =
-        client.queryLegStatus("http://169.254.169.254:80", "tx-8", "DEBIT");
-    assertThat(query).isEmpty();
+    assertThatThrownBy(() -> client.queryLegStatus("http://169.254.169.254:80", "tx-8", "DEBIT"))
+        .isInstanceOf(SecurityException.class)
+        .hasMessageContaining("link-local or metadata address is not allowed");
   }
 
   @Test
   @DisplayName(
-      "Issue #128: In production (allowPrivateAddresses=false), private/loopback addresses are rejected")
+      "Issue #128 / #146: In production (allowPrivateAddresses=false), private/loopback addresses are rejected in both applyLeg and queryLegStatus")
   void privateAddressesBlockedInProduction() {
     ParticipantClient prodClient = new ParticipantClient(restClientBuilder.build(), false);
 
@@ -243,8 +246,100 @@ class ParticipantClientTest {
         .contains("private or loopback address is not allowed in production");
     mockServer.verify();
 
-    Optional<ParticipantClient.LegResponsePayload> query =
-        prodClient.queryLegStatus("http://127.0.0.1:9001", "tx-9", "DEBIT");
-    assertThat(query).isEmpty();
+    assertThatThrownBy(() -> prodClient.queryLegStatus("http://127.0.0.1:9001", "tx-9", "DEBIT"))
+        .isInstanceOf(SecurityException.class)
+        .hasMessageContaining("private or loopback address is not allowed in production");
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #137: In production (allowPrivateAddresses=false), IPv6 ULA (fc00::/7) and CGNAT (100.64.0.0/10) are rejected")
+  void ipv6UlaAndCgnatBlockedInProduction() {
+    ParticipantClient prodClient = new ParticipantClient(restClientBuilder.build(), false);
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-10",
+            "DEBIT",
+            "ACC-1",
+            new MoneyPayload("10.00", "USD"),
+            "REF-10",
+            null,
+            "SYNTHETIC");
+
+    for (String blockedUrl :
+        List.of(
+            "http://[fd00::1]:9001",
+            "http://[fc00::1]:9001",
+            "http://100.64.0.1:9001",
+            "http://100.127.255.254:9001")) {
+      PaymentCallOutcome outcome = prodClient.applyLeg(blockedUrl, "idemp-key-10", request);
+      assertThat(outcome.status()).isEqualTo(CallStatus.REJECTED);
+      assertThat(outcome.reasonCode()).isEqualTo("ROUTING_ERROR");
+      assertThatThrownBy(() -> prodClient.queryLegStatus(blockedUrl, "tx-10", "DEBIT"))
+          .isInstanceOf(SecurityException.class);
+    }
+    mockServer.verify();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #136: Whitelisted internalHosts are permitted in strict mode while link-local metadata and non-whitelisted internal hosts remain blocked")
+  void internalHostsWhitelistAllowsDockerServicesWithoutWeakeningMetadataOrPrivateSsrf() {
+    ParticipantClient prodWithWhitelist =
+        new ParticipantClient(restClientBuilder.build(), false, List.of("bank-a", "bank-b")) {
+          @Override
+          InetAddress[] resolveHostAddresses(String host) throws UnknownHostException {
+            return switch (host) {
+              case "bank-a" ->
+                  new InetAddress[] {InetAddress.getByAddress(new byte[] {(byte) 172, 18, 0, 3})};
+              case "bank-b" ->
+                  new InetAddress[] {
+                    InetAddress.getByAddress(
+                        new byte[] {(byte) 169, (byte) 254, (byte) 169, (byte) 254})
+                  };
+              case "evil-internal" ->
+                  new InetAddress[] {InetAddress.getByAddress(new byte[] {(byte) 172, 18, 0, 9})};
+              default -> super.resolveHostAddresses(host);
+            };
+          }
+        };
+
+    mockServer
+        .expect(requestTo("http://bank-a:9001/finsim/v1/payments"))
+        .andExpect(method(HttpMethod.POST))
+        .andRespond(
+            withSuccess(
+                "{\"status\": \"COMPLETED\", \"participantReference\": \"DOCKER-OK\"}",
+                MediaType.APPLICATION_JSON));
+
+    LegRequestPayload request =
+        new LegRequestPayload(
+            "tx-11",
+            "DEBIT",
+            "ACC-1",
+            new MoneyPayload("10.00", "USD"),
+            "REF-11",
+            null,
+            "SYNTHETIC");
+
+    PaymentCallOutcome allowed =
+        prodWithWhitelist.applyLeg("http://bank-a:9001", "idemp-key-11", request);
+    assertThat(allowed.status()).isEqualTo(CallStatus.COMPLETED);
+    mockServer.verify();
+
+    // Even a whitelisted hostname cannot resolve to link-local / metadata IP
+    PaymentCallOutcome metadataRebind =
+        prodWithWhitelist.applyLeg("http://bank-b:9002", "idemp-key-12", request);
+    assertThat(metadataRebind.status()).isEqualTo(CallStatus.REJECTED);
+    assertThat(metadataRebind.reasonCode()).isEqualTo("ROUTING_ERROR");
+    assertThat(metadataRebind.errorMessage()).contains("link-local or metadata address");
+
+    // Non-whitelisted host resolving to RFC 1918 is still blocked
+    PaymentCallOutcome nonWhitelisted =
+        prodWithWhitelist.applyLeg("http://evil-internal:9003", "idemp-key-13", request);
+    assertThat(nonWhitelisted.status()).isEqualTo(CallStatus.REJECTED);
+    assertThat(nonWhitelisted.reasonCode()).isEqualTo("ROUTING_ERROR");
+    assertThat(nonWhitelisted.errorMessage())
+        .contains("private or loopback address is not allowed in production");
   }
 }

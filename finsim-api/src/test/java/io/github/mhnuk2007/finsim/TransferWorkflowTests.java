@@ -949,4 +949,179 @@ class TransferWorkflowTests {
     assertThat(JsonPath.<String>read(res2.body(), "$.code")).isEqualTo("INVALID_REQUEST");
     assertThat(JsonPath.<String>read(res2.body(), "$.message")).contains("reference");
   }
+
+  @Test
+  @DisplayName(
+      "Issue #145: Resolve honors PendingAction.REVERSE_DEBIT after reversal timeout and never re-sends destination CREDIT")
+  void resolveWithPendingReverseDebitResolvesReversalAndNeverResendsCredit() throws Exception {
+    String key = randomKey();
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "100.00", "REF-145-REV");
+
+    // 1. Source debit completes; destination credit definitively rejects; initial reversal times
+    // out
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-debit")), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-145"));
+    when(participantClient.applyLeg(
+            eq("http://localhost:9002"), argThat(k -> k != null && k.endsWith("-credit")), any()))
+        .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
+        .thenReturn(PaymentCallOutcome.timedOut("Reversal timed out"));
+
+    HttpResponse<String> createRes = postTransfer("sandbox", key, payload);
+    assertThat(createRes.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(createRes.body(), "$.transactionId");
+    assertThat(JsonPath.<String>read(createRes.body(), "$.state")).isEqualTo("UNKNOWN");
+    assertThat(JsonPath.<String>read(createRes.body(), "$.pendingAction"))
+        .isEqualTo("REVERSE_DEBIT");
+
+    // Even if destination would report 404 for CREDIT query, resolve MUST NOT query or re-send
+    // credit
+    when(participantClient.queryLegStatus(eq("http://localhost:9002"), eq(txId), eq("CREDIT")))
+        .thenReturn(Optional.empty());
+    // Source reports reversal leg eventually completed
+    when(participantClient.queryLegStatus(
+            eq("http://localhost:9001"), eq(txId + "-rev"), eq("CREDIT")))
+        .thenReturn(
+            Optional.of(
+                new ParticipantClient.LegResponsePayload(
+                    txId + "-rev", "CREDIT", "COMPLETED", null, "rev-145-ok", "SYNTHETIC")));
+
+    HttpResponse<String> resolveRes = postResolve(txId);
+    assertThat(resolveRes.statusCode()).isEqualTo(200);
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.state")).isEqualTo("REJECTED");
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.reasonCode")).isEqualTo("AC04");
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.emittedBy")).isEqualTo("DESTINATION");
+
+    // Verify destination credit was only called once (during initial orchestration), NEVER re-sent
+    // in resolve()
+    verify(participantClient, times(1))
+        .applyLeg(eq("http://localhost:9002"), eq(txId + "-credit"), any());
+    verify(participantClient, never())
+        .queryLegStatus(eq("http://localhost:9002"), eq(txId), eq("CREDIT"));
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #145: Resolve with PendingAction.REVERSE_DEBIT re-sends reversal when source returns 404 for -rev")
+  void resolveWithPendingReverseDebitResendsReversalWhenNotFound() throws Exception {
+    String key = randomKey();
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "100.00", "REF-145-404");
+
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-debit")), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-145b"));
+    when(participantClient.applyLeg(
+            eq("http://localhost:9002"), argThat(k -> k != null && k.endsWith("-credit")), any()))
+        .thenReturn(PaymentCallOutcome.rejected("AC04", "Account closed"));
+    when(participantClient.applyLeg(
+            eq("http://localhost:9001"), argThat(k -> k != null && k.endsWith("-rev")), any()))
+        .thenReturn(PaymentCallOutcome.timedOut("First reversal lost"))
+        .thenReturn(PaymentCallOutcome.completed("rev-145b-ok"));
+
+    HttpResponse<String> createRes = postTransfer("sandbox", key, payload);
+    assertThat(createRes.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(createRes.body(), "$.transactionId");
+
+    when(participantClient.queryLegStatus(
+            eq("http://localhost:9001"), eq(txId + "-rev"), eq("CREDIT")))
+        .thenReturn(Optional.empty());
+
+    HttpResponse<String> resolveRes = postResolve(txId);
+    assertThat(resolveRes.statusCode()).isEqualTo(200);
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.state")).isEqualTo("REJECTED");
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.reasonCode")).isEqualTo("AC04");
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.emittedBy")).isEqualTo("DESTINATION");
+
+    verify(participantClient, times(1))
+        .applyLeg(eq("http://localhost:9002"), eq(txId + "-credit"), any());
+    verify(participantClient, times(2))
+        .applyLeg(eq("http://localhost:9001"), eq(txId + "-rev"), any());
+  }
+
+  @Test
+  @DisplayName("Issue #146: SecurityException from queryLegStatus keeps transfer safely in UNKNOWN")
+  void ssrfSecurityExceptionInQueryLegStatusKeepsTransferUnknown() throws Exception {
+    String key = randomKey();
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "50.00", "REF-146-SSRF");
+
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.timedOut("Timeout"));
+
+    HttpResponse<String> createRes = postTransfer("sandbox", key, payload);
+    assertThat(createRes.statusCode()).isEqualTo(201);
+    String txId = JsonPath.read(createRes.body(), "$.transactionId");
+
+    when(participantClient.queryLegStatus(eq("http://localhost:9001"), eq(txId), eq("DEBIT")))
+        .thenThrow(new SecurityException("Outbound participant call rejected"));
+
+    HttpResponse<String> resolveRes = postResolve(txId);
+    assertThat(resolveRes.statusCode()).isEqualTo(200);
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.state")).isEqualTo("UNKNOWN");
+    assertThat(JsonPath.<String>read(resolveRes.body(), "$.reasonCode")).isNull();
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #144: Concurrent /resolve requests on an UNKNOWN transfer serialize safely via optimistic locking")
+  void concurrentResolveRequestsSerializeSafely() throws Exception {
+    String key = randomKey();
+    String payload = transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "100.00", "REF-144-CONC");
+
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-conc"));
+    when(participantClient.applyLeg(eq("http://localhost:9002"), any(), any()))
+        .thenReturn(PaymentCallOutcome.timedOut("Credit timeout"));
+
+    HttpResponse<String> createRes = postTransfer("sandbox", key, payload);
+    String txId = JsonPath.read(createRes.body(), "$.transactionId");
+
+    when(participantClient.queryLegStatus(eq("http://localhost:9001"), eq(txId), eq("DEBIT")))
+        .thenReturn(
+            Optional.of(
+                new ParticipantClient.LegResponsePayload(
+                    txId, "DEBIT", "COMPLETED", null, "deb-conc", "SYNTHETIC")));
+    when(participantClient.queryLegStatus(eq("http://localhost:9002"), eq(txId), eq("CREDIT")))
+        .thenAnswer(
+            inv -> {
+              Thread.sleep(75);
+              return Optional.of(
+                  new ParticipantClient.LegResponsePayload(
+                      txId, "CREDIT", "COMPLETED", null, "cred-conc", "SYNTHETIC"));
+            });
+
+    int threads = 4;
+    java.util.concurrent.ExecutorService pool =
+        java.util.concurrent.Executors.newFixedThreadPool(threads);
+    java.util.concurrent.CountDownLatch ready = new java.util.concurrent.CountDownLatch(threads);
+    java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+    java.util.List<java.util.concurrent.Future<HttpResponse<String>>> futures =
+        new java.util.ArrayList<>();
+
+    for (int i = 0; i < threads; i++) {
+      futures.add(
+          pool.submit(
+              () -> {
+                ready.countDown();
+                go.await();
+                return postResolve(txId);
+              }));
+    }
+    ready.await();
+    go.countDown();
+
+    for (var future : futures) {
+      HttpResponse<String> r = future.get();
+      assertThat(r.statusCode()).isIn(200, 409);
+      if (r.statusCode() == 200) {
+        assertThat(JsonPath.<String>read(r.body(), "$.state")).isEqualTo("COMPLETED");
+      }
+    }
+    pool.shutdownNow();
+
+    HttpResponse<String> finalState = getTransfer(txId);
+    assertThat(finalState.statusCode()).isEqualTo(200);
+    assertThat(JsonPath.<String>read(finalState.body(), "$.state")).isEqualTo("COMPLETED");
+  }
 }

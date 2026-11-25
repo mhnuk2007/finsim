@@ -6,6 +6,7 @@ spring:
 
 finsim:
   registry:
+    internal-hosts: ${FINSIM_REGISTRY_INTERNAL_HOSTS:bank-a,bank-b}
     seed:
       institutions:
         - id: bank-a

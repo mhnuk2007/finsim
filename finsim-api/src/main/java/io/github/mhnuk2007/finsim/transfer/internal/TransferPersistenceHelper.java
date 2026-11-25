@@ -2,6 +2,8 @@ package io.github.mhnuk2007.finsim.transfer.internal;
 
 import io.github.mhnuk2007.finsim.core.StageEntry;
 import io.github.mhnuk2007.finsim.core.Transfer;
+import java.util.Optional;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,17 +28,25 @@ public class TransferPersistenceHelper {
 
   @Transactional
   public void persistTransfer(Transfer transfer) {
-    TransferEntity entity =
-        transferRepository
-            .findById(transfer.getId())
-            .map(
-                existing -> {
-                  existing.updateFrom(transfer);
-                  return existing;
-                })
-            .orElseGet(() -> TransferEntity.from(transfer));
+    Optional<TransferEntity> existingOpt = transferRepository.findById(transfer.getId());
+    TransferEntity entity;
+    boolean shouldIncrementVersion = false;
+    if (existingOpt.isPresent()) {
+      TransferEntity existing = existingOpt.get();
+      if (existing.getVersion() != null && !existing.getVersion().equals(transfer.getVersion())) {
+        throw new ObjectOptimisticLockingFailureException(TransferEntity.class, transfer.getId());
+      }
+      boolean changed = existing.updateFrom(transfer);
+      shouldIncrementVersion = existing.getVersion() != null && changed;
+      entity = existing;
+    } else {
+      entity = TransferEntity.from(transfer);
+    }
 
     transferRepository.save(entity);
+    if (shouldIncrementVersion) {
+      transfer.incrementVersion();
+    }
 
     // Save any newly appended stages
     long existingCount = stageRepository.findByTransferIdOrderByIdAsc(transfer.getId()).size();

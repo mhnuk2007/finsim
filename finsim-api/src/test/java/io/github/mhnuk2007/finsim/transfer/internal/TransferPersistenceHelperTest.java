@@ -146,4 +146,85 @@ class TransferPersistenceHelperTest {
 
     verify(mockHelper, times(1)).persistTransfer(transfer);
   }
+
+  @Test
+  @DisplayName(
+      "Issue #144: persistTransfer throws ObjectOptimisticLockingFailureException when DB version differs from Transfer version")
+  void persistTransferThrowsOnStaleVersionMismatch() {
+    Instant now = Instant.parse("2026-11-21T10:00:00Z");
+    Transfer staleTransfer =
+        Transfer.reconstitute(
+            "tx-stale-1",
+            "sandbox",
+            "idemp-stale-1",
+            io.github.mhnuk2007.finsim.core.TransferState.UNKNOWN,
+            "credit_destination",
+            new AccountRef("bank-a", "acc-1"),
+            new AccountRef("bank-b", "acc-2"),
+            Money.of("100.00", "USD"),
+            "ref-1",
+            null,
+            null,
+            io.github.mhnuk2007.finsim.core.PendingAction.RETRY_CREDIT,
+            false,
+            io.github.mhnuk2007.finsim.core.Provenance.SYNTHETIC,
+            List.of(),
+            now,
+            now,
+            0L);
+    staleTransfer.complete("resolve", now.plusSeconds(1));
+
+    TransferEntity dbEntity = org.mockito.Mockito.spy(TransferEntity.from(staleTransfer));
+    when(dbEntity.getVersion()).thenReturn(1L);
+    when(transferRepository.findById("tx-stale-1")).thenReturn(Optional.of(dbEntity));
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> persistenceHelper.persistTransfer(staleTransfer))
+        .isInstanceOf(org.springframework.orm.ObjectOptimisticLockingFailureException.class);
+    verify(transferRepository, org.mockito.Mockito.never()).save(any());
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #144: persistTransfer increments in-memory Transfer version after updating a persisted entity")
+  void persistTransferIncrementsVersionOnChangedPersistedEntity() {
+    Instant now = Instant.parse("2026-11-21T10:00:00Z");
+    Transfer transfer =
+        Transfer.reconstitute(
+            "tx-ver-1",
+            "sandbox",
+            "idemp-ver-1",
+            io.github.mhnuk2007.finsim.core.TransferState.IN_PROGRESS,
+            "debit_source",
+            new AccountRef("bank-a", "acc-1"),
+            new AccountRef("bank-b", "acc-2"),
+            Money.of("100.00", "USD"),
+            "ref-1",
+            null,
+            null,
+            io.github.mhnuk2007.finsim.core.PendingAction.NONE,
+            false,
+            io.github.mhnuk2007.finsim.core.Provenance.SYNTHETIC,
+            List.of(),
+            now,
+            now,
+            0L);
+
+    TransferEntity dbEntity = org.mockito.Mockito.spy(TransferEntity.from(transfer));
+    when(dbEntity.getVersion()).thenReturn(0L);
+    when(transferRepository.findById("tx-ver-1")).thenReturn(Optional.of(dbEntity));
+    when(stageRepository.findByTransferIdOrderByIdAsc("tx-ver-1")).thenReturn(List.of());
+
+    transfer.markUnknown(
+        "credit_destination",
+        io.github.mhnuk2007.finsim.core.PendingAction.REVERSE_DEBIT,
+        false,
+        "Rejected",
+        now.plusSeconds(1));
+
+    persistenceHelper.persistTransfer(transfer);
+
+    verify(transferRepository, times(1)).save(dbEntity);
+    assertThat(transfer.getVersion()).isEqualTo(1L);
+  }
 }

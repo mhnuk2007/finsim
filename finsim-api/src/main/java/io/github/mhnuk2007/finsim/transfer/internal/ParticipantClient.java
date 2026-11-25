@@ -1,10 +1,15 @@
 package io.github.mhnuk2007.finsim.transfer.internal;
 
+import io.github.mhnuk2007.finsim.core.IpAddressSupport;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -18,14 +23,21 @@ public class ParticipantClient {
 
   private final RestClient restClient;
   private final boolean allowPrivateAddresses;
+  private final Set<String> internalHosts;
 
   public ParticipantClient() {
     this(true);
   }
 
+  public ParticipantClient(boolean allowPrivateAddresses) {
+    this(allowPrivateAddresses, List.of());
+  }
+
+  @Autowired
   public ParticipantClient(
-      @Value("${finsim.registry.allow-private-addresses:true}") boolean allowPrivateAddresses) {
-    this(Duration.ofSeconds(2), Duration.ofSeconds(4), allowPrivateAddresses);
+      @Value("${finsim.registry.allow-private-addresses:true}") boolean allowPrivateAddresses,
+      @Value("${finsim.registry.internal-hosts:}") List<String> internalHosts) {
+    this(Duration.ofSeconds(2), Duration.ofSeconds(4), allowPrivateAddresses, internalHosts);
   }
 
   public ParticipantClient(Duration connectTimeout, Duration readTimeout) {
@@ -34,11 +46,20 @@ public class ParticipantClient {
 
   public ParticipantClient(
       Duration connectTimeout, Duration readTimeout, boolean allowPrivateAddresses) {
+    this(connectTimeout, readTimeout, allowPrivateAddresses, List.of());
+  }
+
+  public ParticipantClient(
+      Duration connectTimeout,
+      Duration readTimeout,
+      boolean allowPrivateAddresses,
+      Collection<String> internalHosts) {
     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
     factory.setConnectTimeout(connectTimeout);
     factory.setReadTimeout(readTimeout);
     this.restClient = RestClient.builder().requestFactory(factory).build();
     this.allowPrivateAddresses = allowPrivateAddresses;
+    this.internalHosts = IpAddressSupport.normalizeHosts(internalHosts);
   }
 
   ParticipantClient(RestClient restClient) {
@@ -46,8 +67,14 @@ public class ParticipantClient {
   }
 
   ParticipantClient(RestClient restClient, boolean allowPrivateAddresses) {
+    this(restClient, allowPrivateAddresses, List.of());
+  }
+
+  ParticipantClient(
+      RestClient restClient, boolean allowPrivateAddresses, Collection<String> internalHosts) {
     this.restClient = restClient;
     this.allowPrivateAddresses = allowPrivateAddresses;
+    this.internalHosts = IpAddressSupport.normalizeHosts(internalHosts);
   }
 
   public enum CallStatus {
@@ -175,8 +202,6 @@ public class ParticipantClient {
       LegResponsePayload response =
           restClient.get().uri(url).retrieve().body(LegResponsePayload.class);
       return Optional.ofNullable(response);
-    } catch (SecurityException ex) {
-      return Optional.empty();
     } catch (RestClientResponseException ex) {
       if (ex.getStatusCode().value() == 404) {
         return Optional.empty();
@@ -188,26 +213,36 @@ public class ParticipantClient {
   private void validateTargetSafety(String targetUrl) {
     try {
       URI uri = URI.create(targetUrl);
-      String host = uri.getHost();
-      if (host == null || host.isBlank()) {
+      String rawHost = uri.getHost();
+      String host = IpAddressSupport.normalizeHost(rawHost);
+      if (host.isBlank()) {
         return;
       }
-      InetAddress address = InetAddress.getByName(host);
-      if (address.isLinkLocalAddress() || address.isAnyLocalAddress()) {
-        throw new SecurityException(
-            "Outbound participant call rejected: link-local or metadata address is not allowed ("
-                + host
-                + ")");
-      }
-      if (!allowPrivateAddresses && (address.isLoopbackAddress() || address.isSiteLocalAddress())) {
-        throw new SecurityException(
-            "Outbound participant call rejected: private or loopback address is not allowed in production ("
-                + host
-                + ")");
+      boolean isInternalHost = internalHosts.contains(host);
+      InetAddress[] addresses = resolveHostAddresses(host);
+      for (InetAddress address : addresses) {
+        if (IpAddressSupport.isLinkLocalOrAnyLocal(address)) {
+          throw new SecurityException(
+              "Outbound participant call rejected: link-local or metadata address is not allowed ("
+                  + rawHost
+                  + ")");
+        }
+        if (!allowPrivateAddresses
+            && !isInternalHost
+            && IpAddressSupport.isPrivateOrLoopback(address)) {
+          throw new SecurityException(
+              "Outbound participant call rejected: private or loopback address is not allowed in production ("
+                  + rawHost
+                  + ")");
+        }
       }
     } catch (UnknownHostException ignored) {
       // DNS lookup failure will be handled by the HTTP client
     }
+  }
+
+  InetAddress[] resolveHostAddresses(String host) throws UnknownHostException {
+    return InetAddress.getAllByName(host);
   }
 
   private static String normalizeUrl(String url) {

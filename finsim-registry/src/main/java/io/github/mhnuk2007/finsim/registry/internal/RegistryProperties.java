@@ -10,9 +10,12 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 /** Settings under {@code finsim.registry}. */
 @ConfigurationProperties(prefix = "finsim.registry")
 public record RegistryProperties(
-    @DefaultValue("true") boolean allowPrivateAddresses, @DefaultValue Seed seed) {
+    @DefaultValue("true") boolean allowPrivateAddresses,
+    List<String> internalHosts,
+    @DefaultValue Seed seed) {
 
   public RegistryProperties {
+    internalHosts = internalHosts == null ? List.of() : List.copyOf(internalHosts);
     if (seed == null) {
       seed = new Seed(true, "sandbox", "Sandbox", List.of("USD"), List.of());
     }

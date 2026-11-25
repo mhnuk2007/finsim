@@ -132,4 +132,29 @@ class BaseUrlValidatorTest {
     assertThatThrownBy(() -> BaseUrlValidator.validate("http://1.2.3.4.5:8080", true))
         .isInstanceOf(InvalidInstitution.class);
   }
+
+  @Test
+  void rejectsCgnatInStrictModeAndAllowsWhitelistedInternalHostnames() {
+    assertThatThrownBy(() -> BaseUrlValidator.validate("http://100.64.0.1:9001", false))
+        .isInstanceOf(InvalidInstitution.class)
+        .hasMessageContaining("private or loopback address");
+    assertThatThrownBy(() -> BaseUrlValidator.validate("http://100.127.255.254:9001", false))
+        .isInstanceOf(InvalidInstitution.class);
+
+    assertThatCode(
+            () ->
+                BaseUrlValidator.validate("http://bank-a:9001", false, java.util.List.of("bank-a")))
+        .doesNotThrowAnyException();
+    assertThatCode(
+            () ->
+                BaseUrlValidator.validate(
+                    "http://localhost:9001", false, java.util.List.of("localhost")))
+        .doesNotThrowAnyException();
+    // Link-local literal is still rejected even if listed in internalHosts
+    assertThatThrownBy(
+            () ->
+                BaseUrlValidator.validate(
+                    "http://169.254.169.254", false, java.util.List.of("169.254.169.254")))
+        .isInstanceOf(InvalidInstitution.class);
+  }
 }

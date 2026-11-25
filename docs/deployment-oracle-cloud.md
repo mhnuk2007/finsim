@@ -26,7 +26,7 @@ Internet ─────────► │  [ Ports 80 & 443: Caddy Reverse Pro
 
 ### Security Safeguards:
 - **No Direct Database Exposure:** PostgreSQL runs strictly on an internal Docker bridge network (`finsim-net`). Port 5432 is **never** published to the VM host or public internet.
-- **SSRF & Metadata Defense:** The `prod` profile sets `allow-private-addresses: false` and unconditionally rejects link-local metadata addresses (`169.254.169.254`), preventing any external user from probing OCI instance metadata.
+- **SSRF & Metadata Defense:** The `prod` profile sets `allow-private-addresses: false` (blocking RFC 1918, loopback, CGNAT `100.64.0.0/10`, and IPv6 ULA `fc00::/7`) while explicitly allowing only Docker bridge service names (`FINSIM_REGISTRY_INTERNAL_HOSTS=bank-a,bank-b`), and unconditionally rejects link-local metadata addresses (`169.254.169.254`, `fe80::/10`), preventing any external user from probing OCI instance metadata or internal networks.
 - **CORS Restricted:** Cross-Origin Resource Sharing is controlled via `FINSIM_CORS_ALLOWED_ORIGINS` to allow only your designated frontend (e.g. Vercel dashboard).
 - **Automated TLS:** Caddy terminates TLS and negotiates certificates automatically via Let's Encrypt / ZeroSSL with zero manual renewal needed.
 
@@ -141,8 +141,9 @@ docker compose version
    # Allowed CORS origins for web dashboard (e.g., Vercel)
    FINSIM_CORS_ALLOWED_ORIGINS=https://finsim.vercel.app,http://localhost:3000
 
-   # Registry SSRF policy (set to true when testing with internal container participants bank-a/bank-b on Docker bridge network; see issue #136)
-   FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES=true
+   # Registry SSRF policy (blocks private addresses while allowing internal container hosts bank-a,bank-b)
+   FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES=false
+   FINSIM_REGISTRY_INTERNAL_HOSTS=bank-a,bank-b
    ```
 
 > [!TIP]

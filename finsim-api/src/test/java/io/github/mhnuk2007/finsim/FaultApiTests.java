@@ -345,4 +345,64 @@ class FaultApiTests {
     assertThat(res2.statusCode()).isEqualTo(400);
     assertThat(JsonPath.<String>read(res2.body(), "$.code")).isEqualTo("BAD_REQUEST");
   }
+
+  @Test
+  @DisplayName(
+      "Issue #147: Concurrent transfers with limited-times fault rule never fail with optimistic locking errors")
+  void concurrentTransfersWithLimitedTimesFaultRuleDoNotFail() throws Exception {
+    postFault(
+        """
+        {"target": "bank-b", "type": "TIMEOUT", "times": 2}
+        """);
+
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-conc-ok"));
+    when(participantClient.applyLeg(eq("http://localhost:9002"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("cred-conc-ok"));
+
+    int totalTransfers = 6;
+    java.util.concurrent.ExecutorService pool =
+        java.util.concurrent.Executors.newFixedThreadPool(totalTransfers);
+    java.util.concurrent.CountDownLatch ready =
+        new java.util.concurrent.CountDownLatch(totalTransfers);
+    java.util.concurrent.CountDownLatch go = new java.util.concurrent.CountDownLatch(1);
+    java.util.List<java.util.concurrent.Future<HttpResponse<String>>> futures =
+        new java.util.ArrayList<>();
+
+    for (int i = 0; i < totalTransfers; i++) {
+      int idx = i;
+      futures.add(
+          pool.submit(
+              () -> {
+                String key = "key-conc-fault-" + idx + "-" + UUID.randomUUID();
+                String payload =
+                    transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "25.00", "REF-CF-" + idx);
+                ready.countDown();
+                go.await();
+                return postTransfer("sandbox", key, payload);
+              }));
+    }
+    ready.await();
+    go.countDown();
+
+    int unknownCount = 0;
+    int completedCount = 0;
+    for (var future : futures) {
+      HttpResponse<String> res = future.get();
+      assertThat(res.statusCode()).isEqualTo(201);
+      String state = JsonPath.read(res.body(), "$.state");
+      if ("UNKNOWN".equals(state)) {
+        unknownCount++;
+      } else if ("COMPLETED".equals(state)) {
+        completedCount++;
+      } else {
+        org.assertj.core.api.Assertions.fail(
+            "Unexpected transfer state under fault race: " + state);
+      }
+    }
+    pool.shutdownNow();
+
+    assertThat(unknownCount).isEqualTo(2);
+    assertThat(completedCount).isEqualTo(4);
+  }
 }

@@ -309,11 +309,12 @@ public class TransferOrchestrator {
       case REJECTED -> {
         // Destination definitively rejected credit after debit succeeded.
         // Move to UNKNOWN with REVERSE_DEBIT so compensating reversal can be safely executed.
+        String destReason = normalizeRejectionReason(creditOutcome.reasonCode());
         transfer.markUnknown(
             "credit_destination",
             PendingAction.REVERSE_DEBIT,
             false,
-            creditOutcome.errorMessage(),
+            formatRejectionContext(destReason, creditOutcome.errorMessage()),
             clock.instant());
         if (traceRecorder != null) {
           traceRecorder.recordStateChange(
@@ -324,7 +325,7 @@ public class TransferOrchestrator {
               clock.instant());
         }
         persistTransfer(transfer);
-        return executeReversal(transfer, fromInst, creditOutcome.reasonCode());
+        return executeReversal(transfer, fromInst, destReason);
       }
     }
 
@@ -338,9 +339,26 @@ public class TransferOrchestrator {
     }
 
     Institution fromInst;
-    Institution toInst;
     try {
       fromInst = registry.institution(transfer.getFrom().institutionId());
+    } catch (Exception ex) {
+      transfer.recordStage(
+          "resolve",
+          StageOutcome.UNKNOWN,
+          "Failed to look up institutions in registry: " + ex.getMessage(),
+          clock.instant());
+      persistTransfer(transfer);
+      return transfer;
+    }
+
+    // ADR 0001: Once destination credit was definitively rejected (PendingAction.REVERSE_DEBIT),
+    // never query or re-send destination CREDIT; resolve the compensating reversal leg instead.
+    if (transfer.getPendingAction() == PendingAction.REVERSE_DEBIT) {
+      return resolvePendingReversal(transfer, fromInst);
+    }
+
+    Institution toInst;
+    try {
       toInst = registry.institution(transfer.getTo().institutionId());
     } catch (Exception ex) {
       transfer.recordStage(
@@ -378,7 +396,7 @@ public class TransferOrchestrator {
             "query_debit",
             fromInst.id(),
             Map.of("transactionId", transfer.getId(), "leg", "DEBIT"),
-            Map.of("error", ex.getMessage()),
+            Map.of("error", String.valueOf(ex.getMessage())),
             System.currentTimeMillis() - debitStart,
             debitCallAt);
       }
@@ -477,7 +495,7 @@ public class TransferOrchestrator {
             "query_credit",
             toInst.id(),
             Map.of("transactionId", transfer.getId(), "leg", "CREDIT"),
-            Map.of("error", ex.getMessage()),
+            Map.of("error", String.valueOf(ex.getMessage())),
             System.currentTimeMillis() - creditStart,
             creditCallAt);
       }
@@ -594,13 +612,100 @@ public class TransferOrchestrator {
     return transfer;
   }
 
+  private Transfer resolvePendingReversal(Transfer transfer, Institution fromInst) {
+    String destReason = extractPendingReversalReason(transfer);
+    String revTxId = transfer.getId() + "-rev";
+
+    if (traceRecorder != null) {
+      traceRecorder.recordStage(transfer.getId(), "query_reversal", clock.instant());
+    }
+    long revStart = System.currentTimeMillis();
+    Instant revCallAt = clock.instant();
+    Optional<ParticipantClient.LegResponsePayload> revLegOpt;
+    try {
+      revLegOpt = participantClient.queryLegStatus(fromInst.baseUrl(), revTxId, "CREDIT");
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_reversal",
+            fromInst.id(),
+            Map.of("transactionId", revTxId, "leg", "CREDIT"),
+            revLegOpt.orElse(null),
+            System.currentTimeMillis() - revStart,
+            revCallAt);
+      }
+    } catch (Exception ex) {
+      if (traceRecorder != null) {
+        traceRecorder.recordOutboundCall(
+            transfer.getId(),
+            "query_reversal",
+            fromInst.id(),
+            Map.of("transactionId", revTxId, "leg", "CREDIT"),
+            Map.of("error", String.valueOf(ex.getMessage())),
+            System.currentTimeMillis() - revStart,
+            revCallAt);
+      }
+      transfer.recordStage(
+          "query_reversal",
+          StageOutcome.UNKNOWN,
+          formatRejectionContext(
+              destReason, "Failed to query reversal leg at source: " + ex.getMessage()),
+          clock.instant());
+      persistTransfer(transfer);
+      return transfer;
+    }
+
+    if (revLegOpt.isPresent()) {
+      ParticipantClient.LegResponsePayload revLeg = revLegOpt.get();
+      if ("COMPLETED".equalsIgnoreCase(revLeg.status())) {
+        transfer.reject(
+            "resolve_reversal",
+            destReason,
+            Emitter.DESTINATION,
+            "Reversal completed after destination rejection",
+            clock.instant());
+        if (traceRecorder != null) {
+          traceRecorder.recordStage(transfer.getId(), "resolve_reversal", clock.instant());
+          traceRecorder.recordStateChange(
+              transfer.getId(),
+              "resolve_reversal",
+              TransferState.UNKNOWN,
+              TransferState.REJECTED,
+              clock.instant());
+        }
+        persistTransfer(transfer);
+        return transfer;
+      }
+      if ("REJECTED".equalsIgnoreCase(revLeg.status())) {
+        transfer.updateResolutionStatus(PendingAction.REVERSE_DEBIT, true, clock.instant());
+        transfer.recordStage(
+            "resolve_reversal",
+            StageOutcome.FAILED,
+            formatRejectionContext(
+                destReason, "Reversal was rejected by source: " + revLeg.reasonCode()),
+            clock.instant());
+        persistTransfer(transfer);
+        return transfer;
+      }
+      transfer.updateResolutionStatus(PendingAction.REVERSE_DEBIT, false, clock.instant());
+      transfer.recordStage(
+          "query_reversal",
+          StageOutcome.UNKNOWN,
+          formatRejectionContext(destReason, "Source reported reversal status " + revLeg.status()),
+          clock.instant());
+      persistTransfer(transfer);
+      return transfer;
+    }
+
+    return executeReversal(transfer, fromInst, destReason);
+  }
+
   private Transfer executeReversal(
       Transfer transfer, Institution fromInst, String rejectionReason) {
     if (traceRecorder != null) {
       traceRecorder.recordStage(transfer.getId(), "resolve_reversal", clock.instant());
     }
-    String destReason =
-        rejectionReason != null && !rejectionReason.isBlank() ? rejectionReason : "REJECTED";
+    String destReason = normalizeRejectionReason(rejectionReason);
     String revTxId = transfer.getId() + "-rev";
     String revKey = transfer.getId() + "-rev";
     LegRequestPayload revPayload =
@@ -650,7 +755,8 @@ public class TransferOrchestrator {
         transfer.recordStage(
             "resolve_reversal",
             StageOutcome.UNKNOWN,
-            "Reversal leg timed out: " + revOutcome.errorMessage(),
+            formatRejectionContext(
+                destReason, "Reversal leg timed out: " + revOutcome.errorMessage()),
             clock.instant());
         persistTransfer(transfer);
         return transfer;
@@ -662,13 +768,44 @@ public class TransferOrchestrator {
         transfer.recordStage(
             "resolve_reversal",
             StageOutcome.FAILED,
-            "Reversal was rejected by source: " + revOutcome.errorMessage(),
+            formatRejectionContext(
+                destReason, "Reversal was rejected by source: " + revOutcome.errorMessage()),
             clock.instant());
         persistTransfer(transfer);
         return transfer;
       }
     }
     return transfer;
+  }
+
+  private static String normalizeRejectionReason(String rejectionReason) {
+    return rejectionReason != null && !rejectionReason.isBlank() ? rejectionReason : "REJECTED";
+  }
+
+  private static String formatRejectionContext(String reasonCode, String message) {
+    String prefix = "[reasonCode=" + normalizeRejectionReason(reasonCode) + "]";
+    return message != null && !message.isBlank() ? prefix + " " + message : prefix;
+  }
+
+  private static String extractPendingReversalReason(Transfer transfer) {
+    var history = transfer.getStageHistory();
+    for (int i = history.size() - 1; i >= 0; i--) {
+      String details = history.get(i).details();
+      if (details != null) {
+        int start = details.indexOf("[reasonCode=");
+        if (start >= 0) {
+          int codeStart = start + "[reasonCode=".length();
+          int end = details.indexOf(']', codeStart);
+          if (end > codeStart) {
+            String extracted = details.substring(codeStart, end).trim();
+            if (!extracted.isBlank()) {
+              return extracted;
+            }
+          }
+        }
+      }
+    }
+    return "REJECTED";
   }
 
   private PaymentCallOutcome sendLeg(
