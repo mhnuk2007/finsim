@@ -1,0 +1,13 @@
+:80 {
+    root * /srv
+    encode gzip zstd
+
+    handle /healthz {
+        respond "UP" 200
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+}

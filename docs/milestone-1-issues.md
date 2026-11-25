@@ -128,10 +128,10 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 
 ## Web & Frontend
 
-**25. Next.js 16 web workspace scaffold, design system and base shell** `[milestone-1]` `[gfi]`
-Initialize `web/` with Next.js 16 (App Router), React 19, Tailwind CSS v4, TypeScript, Lucide icons, financial semantic color tokens, marketing layout shell (`/(marketing)`), simulation cockpit shell (`/(cockpit)`), and zero-backend mock fixtures.
-*Done when:* `npm run dev` and `npm run build` succeed, `/` renders the marketing shell, and `/app` renders the simulation cockpit shell.
-*Issue:* [#29](https://github.com/mhnuk2007/finsim/issues/29)
+**25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[done]`
+- **Phase 1 (`web/`):** Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), and `caddy:2-alpine` Dockerfile.
+- **Phase 2 (`site/`):** Separate Next.js Marketing & Docs Hub.
+*Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 
 ---
 
