@@ -92,6 +92,26 @@ services:
     networks:
       - finsim-net
 
+  finsim-web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        VITE_DEFAULT_MODE: ${VITE_DEFAULT_MODE:-live}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    container_name: finsim-web
+    restart: unless-stopped
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/healthz | grep -q 'UP' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - finsim-net
+
   caddy:
     image: caddy:2-alpine
     container_name: finsim-caddy
@@ -107,6 +127,8 @@ services:
       - caddy_config:/config
     depends_on:
       finsim-api:
+        condition: service_healthy
+      finsim-web:
         condition: service_healthy
     networks:
       - finsim-net

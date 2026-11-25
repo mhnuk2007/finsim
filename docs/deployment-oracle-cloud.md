@@ -16,6 +16,7 @@ Internet ─────────► │  [ Ports 80 & 443: Caddy Reverse Pro
                     │    └─ Ingress rate limiting                            │
                     │                    │                                   │
                     │         (Internal Docker Network)                      │
+                    │                    ├──► [ finsim-web:80 ] (Cockpit UI)   │
                     │                    ▼                                   │
                     │          [ finsim-api:8080 ]                           │
                     │          ├── postgres:5432 (NO host port exposed)      │

@@ -29,8 +29,8 @@
         reverse_proxy finsim-api:8080
     }
 
-    # Root informational response
+    # FinSim Simulation Cockpit (Vite SPA)
     handle {
-        respond "FinSim API Gateway (Production)" 200
+        reverse_proxy finsim-web:80
     }
 }
