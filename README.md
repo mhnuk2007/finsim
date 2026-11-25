@@ -45,7 +45,7 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | CLI transfer, resolve, & fault management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove` | Done |
 | CLI participant base URL subpaths & context path preservation | Done ([#132](https://github.com/mhnuk2007/finsim/pull/132), [#133](https://github.com/mhnuk2007/finsim/pull/133)) |
 | Cloud deployment & security hardening: production Docker Compose stack, Caddy automated TLS, CORS for web frontends, and SSRF/metadata guards | Done (`docker-compose.prod.yml`, `docs/deployment-oracle-cloud.md`) |
-| Web Simulation Cockpit: Vite + React 19 topology, transfer runner, ADR 0001 resolution, trace waterfall, fault rules, Demo & Live API modes, Caddy container | In progress ([#134](https://github.com/mhnuk2007/finsim/issues/134)) |
+| Web Simulation Cockpit: Vite + React 19 topology, transfer runner, ADR 0001 resolution, trace waterfall, fault rules, Demo & Live API modes, Caddy container | Done (`web/`, [#134](https://github.com/mhnuk2007/finsim/issues/134), [#135](https://github.com/mhnuk2007/finsim/pull/135)) |
 | Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
 | Milestone 3: disputes, reconciliation, scenario replay | Planned |

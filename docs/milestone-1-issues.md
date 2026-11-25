@@ -133,8 +133,8 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 
 ## Web & Frontend
 
-**25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[in-progress]`
-- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), and `caddy:2-alpine` Dockerfile. (*In progress by @sunilk429*).
+**25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[done]`
+- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), and `caddy:2-alpine` Dockerfile. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135)*).
 - **Phase 2 (`site/`):** Dedicated Next.js Marketing & Docs Hub for landing page, SEO, and educational guides.
 *Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 

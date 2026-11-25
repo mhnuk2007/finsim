@@ -12,5 +12,6 @@ Thank you to everyone who has contributed to FinSim.
 - [Thevel0per](https://github.com/dansonofbass)
 - [innocentjasmine](https://github.com/innocentjasmine)
 - [山之形](https://github.com/wood0v0)
+- [Sunil Kumar](https://github.com/sunilk429)
 
 Want to see your name here? See [CONTRIBUTING.md](CONTRIBUTING.md).
