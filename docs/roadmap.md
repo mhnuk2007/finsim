@@ -22,8 +22,8 @@ Changing a domain's fidelity tag requires a pull request that updates this page.
 ## 2. Committed milestones
 
 ### M1: Hello, transaction
-Three independent sample banks (Java, Python, Node.js/TypeScript) transact through the `finsim/v1` contract.
-Transfer state machine with `UNKNOWN`, idempotency, reason codes, fault injection (delay, timeout, duplicate), trace, `finsim verify`, Docker Compose quickstart.
+Four independent sample banks (Java, Python, Node.js/TypeScript, Go) transact through the `finsim/v1` contract.
+Transfer state machine with `UNKNOWN`, idempotency, reason codes, fault injection (delay, timeout, duplicate), trace, `finsim verify`, Web Simulation Cockpit (`web/`), Docker Compose quickstart.
 Issue list: [milestone-1-issues.md](milestone-1-issues.md).
 
 ### M2: Cards, time, and money movement

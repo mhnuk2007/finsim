@@ -1,7 +1,7 @@
 # Quickstart
 
-> **Status: runnable platform baseline (milestone 1 in active progress).**
-> The database, FinSim platform API, institution registry, payment transfer orchestration (`POST /api/v1/networks/{networkId}/transfers`), reconciliation resolution (`POST /api/v1/transfers/{id}/resolve`), CLI commands (`institutions`, `networks`, `register`, `join`, `verify`), fault injection (`POST/GET/DELETE /api/v1/faults`), property-based chaos testing (#24), and sample banks (Java, Python, Node.js) are **runnable today**. Trace recording (#23) is in active development.
+> **Status: runnable platform baseline (milestone 1 in final release readiness).**
+> The database, FinSim platform API, institution registry, payment transfer orchestration (`POST /api/v1/networks/{networkId}/transfers`), reconciliation resolution (`POST /api/v1/transfers/{id}/resolve`), trace recording (`GET /api/v1/transfers/{id}/trace`), fault injection (`POST/GET/DELETE /api/v1/faults`), property-based chaos testing (#24), CLI commands, Web Simulation Cockpit (`web/`), and four sample banks (Java, Python, Node.js, Go) are **runnable today**.
 > Track detailed issue progress in [milestone-1-issues.md](milestone-1-issues.md).
 
 ---
@@ -10,8 +10,9 @@
 
 - **Docker and Docker Compose** (for PostgreSQL)
 - **Java 21+** (for building FinSim and Java sample bank from source)
-- **Node.js 20+** (optional, for running the Node sample bank)
+- **Node.js 20+** (optional, for running the Node sample bank or `web/` Simulation Cockpit)
 - **Python 3.10+** (optional, for running the Python sample bank)
+- **Go 1.22+** (optional, for running the Go sample bank)
 - **Git**
 
 ---
@@ -305,6 +306,8 @@ You can implement the `finsim/v1` participant contract in any language:
 
 ## What's Next
 
+- See [`web/README.md`](../web/README.md) to run the browser Simulation Cockpit (Demo Mode or Live API).
+- See [deployment-oracle-cloud.md](deployment-oracle-cloud.md) for production Docker Compose + Caddy deployment.
 - See [registry.md](registry.md) for details on registry APIs and SSRF URL protection.
 - See [database.md](database.md) for database schema, Flyway migrations, and Testcontainers setup.
 - See [roadmap.md](roadmap.md) for the long-term roadmap beyond Milestone 1.

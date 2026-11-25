@@ -5,14 +5,14 @@ Thanks for your interest. FinSim is a young project, so early contributions have
 ## Ways to contribute
 
 - **Try it and report what broke.** A clear bug report with steps is valuable.
-- **Write a sample institution** in a language we don't have yet (Go, Rust, .NET, Ruby, Elixir...). Java (`samples/bank-java`), Python (`samples/bank-python`), and Node.js/TypeScript (`samples/bank-node`) are already built.
+- **Write a sample institution** in a language we don't have yet (Rust, .NET, Ruby, Elixir...). Java (`samples/bank-java`), Python (`samples/bank-python`), Node.js/TypeScript (`samples/bank-node`), and Go (`samples/bank-go`) are already built.
 - **Add a fault type** (for example slow response, partial failure, malformed response).
 - **Pick up a roadmap item** labeled `help wanted`.
 - **Improve docs**: quickstart gaps, unclear contract text, typos.
 
 ## Getting set up
 
-Prerequisites: Java 21, Docker and Docker Compose, Node.js 20+ (for the Node sample), Python 3.10+ (for the Python sample).
+Prerequisites: Java 21, Docker and Docker Compose, Node.js 20+ (for the Node sample and `web/` Cockpit), Python 3.10+ (for the Python sample), Go 1.22+ (for the Go sample).
 
 ```bash
 git clone https://github.com/mhnuk2007/finsim.git

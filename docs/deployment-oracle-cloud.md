@@ -169,6 +169,7 @@ docker compose version
    - `finsim-bank-a` (healthy)
    - `finsim-bank-b` (healthy)
    - `finsim-api` (healthy)
+   - `finsim-web` (healthy)
    - `finsim-caddy` (running)
 
 ---
@@ -177,7 +178,13 @@ docker compose version
 
 Verify the deployment from your local machine:
 
-1. **Health Check:**
+1. **Simulation Cockpit UI:**
+   ```bash
+   curl -i https://<your-domain>/
+   ```
+   Expected response: `HTTP/2 200` serving the Vite/React Simulation Cockpit (`text/html`), connected in **Live API** mode via same-origin `/api/*` and `/actuator/health`.
+
+2. **Health Check:**
    ```bash
    curl -i https://<your-domain>/actuator/health
    ```
@@ -187,7 +194,7 @@ Verify the deployment from your local machine:
    {"status":"UP"}
    ```
 
-2. **CORS Preflight Test:**
+3. **CORS Preflight Test (for external frontend origins):**
    ```bash
    curl -i -X OPTIONS https://<your-domain>/api/v1/networks/sandbox/directory \
      -H "Origin: https://finsim.vercel.app" \
@@ -200,7 +207,7 @@ Verify the deployment from your local machine:
    access-control-allow-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
    ```
 
-3. **Verify Database Isolation:**
+4. **Verify Database Isolation:**
    Attempting to connect to port 5432 or 5433 from outside the VM should be completely rejected or timed out:
    ```bash
    nc -zv <YOUR_PUBLIC_IP> 5432

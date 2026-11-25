@@ -80,9 +80,9 @@ Institution URLs are attacker-controllable input, so they are validated by `Base
 - Link-local addresses (including the cloud instance metadata address `169.254.169.254`), unspecified addresses (`0.0.0.0`), and IPv6 link-local (`fe80::/10`) are **always** rejected.
 - Alternative IPv4 representations (dword/integer, 2/3-octet short-form, octal, hex) and IPv4-mapped IPv6 literals (`::ffff:a.b.c.d`) are parsed and evaluated against link-local and loopback rules without issuing external DNS queries.
 - Non-canonical IP formats and invalid numeric hostnames (such as numeric TLDs) are strictly rejected.
-- With `finsim.registry.allow-private-addresses: false`, loopback (`127.0.0.0/8`, `::1`), private RFC 1918 ranges, carrier-grade NAT (`100.64.0.0/10`), IPv6 unique local (`fc00::/7`), and `localhost` (including `*.localhost`) are rejected too. The default is `true` because local development uses `localhost`. Set it to `false` for any shared or hosted deployment.
+- With `finsim.registry.allow-private-addresses: false`, loopback (`127.0.0.0/8`, `::1`), private RFC 1918 ranges, carrier-grade NAT (`100.64.0.0/10`), IPv6 unique local (`fc00::/7`), and `localhost` (including `*.localhost`) are rejected too unless the exact hostname is listed in `finsim.registry.internal-hosts` (`FINSIM_REGISTRY_INTERNAL_HOSTS`, defaulted to `bank-a,bank-b` under the `docker` profile). The default for `allow-private-addresses` is `true` for local development and `false` under the `prod` profile.
 
-This check looks only at literal addresses and syntax to preserve offline determinism and fast startup. Protection against hostnames that dynamically resolve to private addresses must also be applied when FinSim executes outbound HTTP calls (see issue #10).
+`BaseUrlValidator` evaluates literal addresses and URL syntax at registration time without issuing external DNS queries. When FinSim executes outbound HTTP calls, `ParticipantClient.validateTargetSafety` resolves all host addresses via `InetAddress.getAllByName` and enforces the same shared `IpAddressSupport` rules (including unconditional link-local/metadata blocking, private/ULA/CGNAT blocking, and the `internal-hosts` allowlist).
 
 ## Routing check
 

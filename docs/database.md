@@ -195,7 +195,7 @@ public class TestcontainersConfiguration {
 }
 ```
 
-This dynamically spins up a fresh, isolated PostgreSQL 17 container, applies all Flyway migrations (`V1` through `V4`), runs the test suite, and cleanly tears down the container afterward.
+This dynamically spins up a fresh, isolated PostgreSQL 17 container, applies all Flyway migrations (`V1` through `V5`), runs the test suite, and cleanly tears down the container afterward.
 
 ### Running with Testcontainers Interactively
 You can run the full API application against an ephemeral Testcontainers database without Docker Compose:

@@ -134,7 +134,7 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 ## Web & Frontend
 
 **25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[done]`
-- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), and `caddy:2-alpine` Dockerfile. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135)*).
+- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), `caddy:2-alpine` Dockerfile, and production Caddy proxy integration in `docker-compose.prod.yml`. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135); wired into production Caddy in [#158](https://github.com/mhnuk2007/finsim/pull/158)*).
 - **Phase 2 (`site/`):** Dedicated Next.js Marketing & Docs Hub for landing page, SEO, and educational guides.
 *Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 
@@ -148,15 +148,16 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 *Issue:* [#19](https://github.com/mhnuk2007/finsim/issues/19)
 
 **27. Cloud deployment & security hardening** `[milestone-1]` `[done]`
-Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS reverse proxy (`deploy/caddy/Caddyfile`), CORS control (`FINSIM_CORS_ALLOWED_ORIGINS`), and SSRF/metadata guards. Follow-up hardening items tracked:
-- [#136](https://github.com/mhnuk2007/finsim/issues/136): Production Docker Compose stack fails all sample bank transfers due to SSRF private address rejection on Docker bridge network
-- [#137](https://github.com/mhnuk2007/finsim/issues/137): `ParticipantClient.validateTargetSafety` SSRF protection bypasses IPv6 Unique Local Addresses (`fc00::/7`) and Carrier-Grade NAT (`100.64.0.0/10`)
-- [#138](https://github.com/mhnuk2007/finsim/issues/138): Caddy reverse proxy route `/swagger-ui/*` fails to match `/swagger-ui.html`
-- [#139](https://github.com/mhnuk2007/finsim/issues/139): `docker-compose.prod.yml` caddy service fails to pass `ACME_EMAIL` to container
+Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS reverse proxy (`deploy/caddy/Caddyfile`), CORS control (`FINSIM_CORS_ALLOWED_ORIGINS`), and SSRF/metadata guards.
+*Hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157) & [#158](https://github.com/mhnuk2007/finsim/pull/158):*
+- ~~[#136](https://github.com/mhnuk2007/finsim/issues/136)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added `finsim.registry.internal-hosts` (`FINSIM_REGISTRY_INTERNAL_HOSTS`) for Docker bridge participants (`bank-a,bank-b`).
+- ~~[#137](https://github.com/mhnuk2007/finsim/issues/137)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added shared `IpAddressSupport` blocking IPv6 ULA (`fc00::/7`) and CGNAT (`100.64.0.0/10`).
+- ~~[#144](https://github.com/mhnuk2007/finsim/issues/144), [#145](https://github.com/mhnuk2007/finsim/issues/145), [#146](https://github.com/mhnuk2007/finsim/issues/146), [#147](https://github.com/mhnuk2007/finsim/issues/147)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Fixed `/resolve` `@Version` optimistic locking, `PendingAction.REVERSE_DEBIT` resolution, SSRF `SecurityException` propagation in `queryLegStatus`, and atomic `FaultService` decrement retries.
+- Open follow-ups: [#138](https://github.com/mhnuk2007/finsim/issues/138) (`/swagger-ui.html` Caddy route) and [#139](https://github.com/mhnuk2007/finsim/issues/139) (`ACME_EMAIL` env pass-through).
 
-**27. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
-Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, and `README.md` synchronized with the actual codebase capabilities.
+**28. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
+Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, and `README.md` synchronized with the actual codebase capabilities.
 
-**28. Name and launch checks** `[milestone-1]` `[partially-done]`
+**29. Name and launch checks** `[milestone-1]` `[partially-done]`
 Name search, `SECURITY` contact, Code of Conduct file, issue and PR templates, 10 labeled good first issues.
-*Status:* 10 curated good first issues published on GitHub (#11 through #20) and documented in `docs/good-first-issues.md`. Issue and PR templates active. GitHub branch ruleset active on `main` enforcing required status checks and blocking force pushes. Maintainer governance checklist in progress.
+*Status:* Curated good first issues published on GitHub and documented in `docs/good-first-issues.md`. Issue and PR templates active. GitHub branch ruleset active on `main` enforcing required status checks and blocking force pushes. Maintainer governance checklist in progress.

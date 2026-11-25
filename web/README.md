@@ -38,4 +38,4 @@ docker build -t finsim-web ./web
 docker run -p 3000:80 finsim-web
 ```
 
-In production behind `deploy/caddy/Caddyfile`, route `/api/*`, `/actuator/*`, `/swagger-ui/*`, and `/v3/api-docs*` to `finsim-api:8080` and the root fallback `handle` to `finsim-web:80`.
+In production, [`docker-compose.prod.yml`](../docker-compose.prod.yml) and [`deploy/caddy/Caddyfile`](../deploy/caddy/Caddyfile) build `finsim-web` out of the box, routing `/api/*`, `/actuator/health*`, `/swagger-ui/*`, and `/v3/api-docs*` to `finsim-api:8080` and the root fallback `handle` to `finsim-web:80`.

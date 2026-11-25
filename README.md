@@ -36,17 +36,18 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | Sample bank (Java): in-memory bank implementing participant contract | Done (`samples/bank-java`) |
 | Sample bank (Python): in-memory bank implementing participant contract | Done (`samples/bank-python`) |
 | Sample bank (Node.js/TypeScript): in-memory bank implementing participant contract | Done (`samples/bank-node`) |
-| Payment orchestration & ADR 0001 resolution: debit/credit orchestration, `UNKNOWN` state handling, resolve endpoint | Done |
-| Fault injection & Chaos invariants: `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY` rules, jqwik property-based conservation tests | Done |
+| Sample bank (Go): in-memory bank using stdlib `net/http` | Done (`samples/bank-go`, [#141](https://github.com/mhnuk2007/finsim/pull/141)) |
+| Payment orchestration & ADR 0001 resolution: debit/credit orchestration, `UNKNOWN` state handling, resolve endpoint | Done (hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157)) |
+| Fault injection & Chaos invariants: `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY` rules, jqwik property-based conservation tests | Done (concurrent evaluation hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157)) |
 | Participant conformance test engine: `finsim verify --url` 7-phase validation suite | Done |
 | Transfer trace recording: stages, state changes, participant calls, injected faults, `finsim trace` | Done |
 | Multi-container Docker Compose quickstart: PostgreSQL 17, FinSim API, Bank A, Bank B, healthchecks | Done |
 | Dynamic network directory discovery: `GET /api/v1/networks/{id}/directory`, CLI `finsim directory` | Done |
 | CLI transfer, resolve, & fault management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove` | Done |
 | CLI participant base URL subpaths & context path preservation | Done ([#132](https://github.com/mhnuk2007/finsim/pull/132), [#133](https://github.com/mhnuk2007/finsim/pull/133)) |
-| Cloud deployment & security hardening: production Docker Compose stack, Caddy automated TLS, CORS for web frontends, and SSRF/metadata guards | Done (`docker-compose.prod.yml`, `docs/deployment-oracle-cloud.md`) |
-| Web Simulation Cockpit: Vite + React 19 topology, transfer runner, ADR 0001 resolution, trace waterfall, fault rules, Demo & Live API modes, Caddy container | Done (`web/`, [#134](https://github.com/mhnuk2007/finsim/issues/134), [#135](https://github.com/mhnuk2007/finsim/pull/135)) |
-| Milestone 1: three sample banks (Java, Python, Node.js), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Docker Compose quickstart | In progress (final release readiness) |
+| Cloud deployment & security hardening: production Docker Compose stack, Caddy automated TLS, CORS for web frontends, and SSRF/metadata guards (`internal-hosts`, ULA/CGNAT) | Done (`docker-compose.prod.yml`, `docs/deployment-oracle-cloud.md`, [#157](https://github.com/mhnuk2007/finsim/pull/157)) |
+| Web Simulation Cockpit: Vite + React 19 topology, transfer runner, ADR 0001 resolution, trace waterfall, fault rules, Demo & Live API modes, Caddy container | Done (`web/`, [#135](https://github.com/mhnuk2007/finsim/pull/135), [#158](https://github.com/mhnuk2007/finsim/pull/158)) |
+| Milestone 1: four sample banks (Java, Python, Node.js, Go), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Web Cockpit, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
 | Milestone 3: disputes, reconciliation, scenario replay | Planned |
 | Clearing, RTGS, FX, screening, ISO 20022, billers, fees | Roadmap (help wanted) |
@@ -90,6 +91,16 @@ docker compose up -d postgres
 # 4. Query seeded institutions and the sandbox network using the CLI (supports --json / -j)
 ./gradlew :finsim-cli:run --args="institutions"
 ./gradlew :finsim-cli:run --args="networks --id sandbox --json"
+```
+
+### Option C: Web Simulation Cockpit (`web/`)
+
+Run the interactive React Flow workbench at `http://localhost:3000` (starts in zero-backend **Demo Mode**, or switch the toggle to **Live API** when `finsim-api` is running; see [`web/README.md`](web/README.md)):
+
+```bash
+cd web
+npm install
+npm run dev
 ```
 
 ### Execute Transfers & Inject Faults via the CLI
