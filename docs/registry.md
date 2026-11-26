@@ -75,7 +75,7 @@ Set `finsim.registry.seed.enabled: false` to start empty.
 
 Institution URLs are attacker-controllable input, so they are validated by `BaseUrlValidator` at registration:
 
-- Only `http` and `https`; no credentials or fragments in the URL.
+- Only `http` and `https`; no credentials, query strings, or fragments in the URL.
 - Trailing dots on hostnames (e.g. `localhost.`) are normalized to prevent fully qualified domain name (FQDN) filter bypasses.
 - Link-local addresses (including the cloud instance metadata address `169.254.169.254`), unspecified addresses (`0.0.0.0`), and IPv6 link-local (`fe80::/10`) are **always** rejected.
 - Alternative IPv4 representations (dword/integer, 2/3-octet short-form, octal, hex) and IPv4-mapped IPv6 literals (`::ffff:a.b.c.d`) are parsed and evaluated against link-local and loopback rules without issuing external DNS queries.

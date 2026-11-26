@@ -8,6 +8,7 @@ import {
   type NodeProps,
   Position,
   ReactFlow,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Building2, ShieldAlert, Workflow } from "lucide-react";
@@ -223,19 +224,37 @@ export function TopologyCanvas({
         }
       }
 
-      // Compute status pill reflecting active transfer
+      // Compute status pill reflecting active transfer (supports both Demo uppercase and Live lowercase stages)
+      const stage = activeTransfer?.currentStage;
+      const isDebitStage = stage === "DEBIT_LEG" || stage === "debit_source";
+      const isResolutionStage =
+        stage === "RESOLUTION" || stage === "resolve" || stage === "resolve_credit";
+      const isReversalStage = stage === "resolve_reversal";
+      const debitFailed =
+        (activeTransfer?.state === "UNKNOWN" || activeTransfer?.state === "REJECTED") &&
+        (isDebitStage ||
+          (isResolutionStage && activeTransfer?.emittedBy !== "DESTINATION"));
+
       let statusPill: StatusPillInfo | null = null;
       if (activeTransfer) {
         if (isSource) {
-          if (activeTransfer.state === "UNKNOWN" && activeTransfer.currentStage === "DEBIT_LEG") {
-            statusPill = { text: "DEBIT TIMEOUT", variant: "warning" };
-          } else if (activeTransfer.state === "REJECTED" && activeTransfer.currentStage === "DEBIT_LEG") {
+          if (activeTransfer.state === "UNKNOWN" && (isDebitStage || isReversalStage)) {
+            statusPill = {
+              text: isReversalStage ? "REVERSAL UNKNOWN" : "DEBIT TIMEOUT",
+              variant: "warning",
+            };
+          } else if (
+            activeTransfer.state === "REJECTED" &&
+            (isDebitStage || (isResolutionStage && activeTransfer.emittedBy !== "DESTINATION"))
+          ) {
             statusPill = { text: "DEBIT REJECTED", variant: "error" };
+          } else if (activeTransfer.state === "REJECTED" && isReversalStage) {
+            statusPill = { text: "DEBIT REVERSED", variant: "info" };
           } else {
             statusPill = { text: "DEBIT OK", variant: "success" };
           }
-        } else if (isDest) {
-          if (activeTransfer.currentStage === "RESOLUTION" && activeTransfer.state === "COMPLETED") {
+        } else if (isDest && !debitFailed) {
+          if (isResolutionStage && activeTransfer.state === "COMPLETED") {
             statusPill = { text: "RESOLVED", variant: "success" };
           } else if (activeTransfer.state === "UNKNOWN") {
             statusPill = { text: "CREDIT TIMEOUT", variant: "warning" };
@@ -243,7 +262,10 @@ export function TopologyCanvas({
             statusPill = { text: "CREDIT OK", variant: "success" };
           } else if (activeTransfer.state === "REJECTED") {
             statusPill = { text: "REJECTED", variant: "error" };
-          } else if (activeTransfer.state === "IN_PROGRESS" || activeTransfer.state === "ACCEPTED") {
+          } else if (
+            activeTransfer.state === "IN_PROGRESS" ||
+            activeTransfer.state === "ACCEPTED"
+          ) {
             statusPill = { text: "IN PROGRESS", variant: "info" };
           }
         }
@@ -268,15 +290,19 @@ export function TopologyCanvas({
       });
 
       const strokeColor =
-        isDest && activeTransfer?.state === "UNKNOWN"
+        isSource && activeTransfer?.state === "UNKNOWN" && (isDebitStage || isReversalStage)
           ? "#f59e0b"
-          : isDest && activeTransfer?.state === "REJECTED"
+          : isSource && activeTransfer?.state === "REJECTED" && debitFailed
             ? "#f43f5e"
-            : isSource || isDest
-              ? "#10b981"
-              : isDark
-                ? "#475569"
-                : "#94a3b8";
+            : isDest && !debitFailed && activeTransfer?.state === "UNKNOWN"
+              ? "#f59e0b"
+              : isDest && !debitFailed && activeTransfer?.state === "REJECTED"
+                ? "#f43f5e"
+                : isSource || (isDest && !debitFailed)
+                  ? "#10b981"
+                  : isDark
+                    ? "#475569"
+                    : "#94a3b8";
 
       builtEdges.push({
         id: `e-${inst.id}-hub`,
@@ -311,6 +337,8 @@ export function TopologyCanvas({
     return { nodes: builtNodes, edges: builtEdges };
   }, [participants, faults, activeTransfer, onQuickToggleTimeout, balances, isDark]);
 
+  const layoutKey = `${participants.map((p) => p.id).join(",")}:${Boolean(balances)}`;
+
   return (
     <div className="h-[285px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
       <ReactFlow
@@ -326,9 +354,23 @@ export function TopologyCanvas({
         panOnDrag={false}
         zoomOnScroll={false}
       >
+        <AutoFitView layoutKey={layoutKey} />
         <Background color={isDark ? "#334155" : "#cbd5e1"} gap={18} size={1} />
         <Controls showInteractive={false} />
       </ReactFlow>
     </div>
   );
+}
+
+function AutoFitView({ layoutKey }: { layoutKey: string }) {
+  const { fitView } = useReactFlow();
+
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => {
+      fitView({ padding: 0.18, duration: 150 });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [fitView, layoutKey]);
+
+  return null;
 }

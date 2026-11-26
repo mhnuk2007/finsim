@@ -79,14 +79,23 @@ export function createFinSimApi(mode: ConnectionMode, baseUrlOverride?: string) 
     }
 
     const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
+    let data: unknown = null;
+    if (text) {
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = null;
+      }
+    }
 
     if (!res.ok) {
-      const err = data as ErrorResponse | null;
+      const err =
+        data && typeof data === "object" ? (data as ErrorResponse) : null;
+      const fallbackMessage = text.trim() || res.statusText || "Request failed";
       throw new ApiClientError(
         res.status,
         err?.code ?? `HTTP_${res.status}`,
-        err?.message ?? res.statusText ?? "Request failed",
+        err?.message ?? fallbackMessage,
       );
     }
     return data as T;

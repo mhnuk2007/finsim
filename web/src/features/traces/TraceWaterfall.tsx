@@ -165,7 +165,15 @@ export function TraceWaterfall({
   };
 
   const handleCopyCurl = async () => {
-    const cmd = `curl -s http://localhost:8080/api/v1/transfers/${transfer.transactionId}/trace | jq`;
+    const storedBase =
+      typeof window !== "undefined"
+        ? (window.localStorage?.getItem("finsim.apiBaseUrl") ?? "").trim()
+        : "";
+    const origin =
+      storedBase ||
+      (typeof window !== "undefined" ? window.location.origin : "http://localhost:8080");
+    const base = origin.replace(/\/+$/, "");
+    const cmd = `curl -s ${base}/api/v1/transfers/${transfer.transactionId}/trace | jq`;
     await navigator.clipboard?.writeText(cmd);
     setCopied(true);
     showToast("cURL command copied to clipboard", "info");
