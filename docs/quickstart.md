@@ -289,6 +289,20 @@ finsim resolve <transactionId>
 finsim trace <transactionId>
 ```
 
+### Declarative Scenario DSL & Deterministic Replay
+
+To run reproducible multi-step chaos workflows declaratively from YAML or JSON (including stage-targeted faults like `RESPONSE_LOST_AFTER_PROCESSING`) and verify canonical trace + exact `BigDecimal` balance equivalence across isolated runs:
+
+```bash
+# Run the built-in lost-credit timeout & ADR 0001 recovery scenario with isolated replay verification
+finsim scenario run docs/scenarios/lost-credit-timeout-and-recovery.yaml --verify-replay
+
+# Machine-readable JSON summary (supports --live for single-pass execution against a running API server)
+finsim scenario run docs/scenarios/lost-credit-timeout-and-recovery.yaml --verify-replay --json
+```
+
+See [docs/scenarios/lost-credit-timeout-and-recovery.yaml](scenarios/lost-credit-timeout-and-recovery.yaml) for a complete `finsim/scenario/v1` example.
+
 ---
 
 ## 5. Connect Your Own Institution

@@ -38,18 +38,19 @@ Timeouts, duplicate requests, and uncertain outcomes are the hardest parts of pa
 | Sample bank (Node.js/TypeScript): in-memory bank implementing participant contract | Done (`samples/bank-node`) |
 | Sample bank (Go): in-memory bank using stdlib `net/http` | Done (`samples/bank-go`, [#141](https://github.com/mhnuk2007/finsim/pull/141)) |
 | Payment orchestration & ADR 0001 resolution: debit/credit orchestration, `UNKNOWN` state handling, resolve endpoint | Done (hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157)) |
-| Fault injection & Chaos invariants: `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY` rules, jqwik property-based conservation tests | Done (concurrent evaluation hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157)) |
+| Fault injection & Chaos invariants: `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY` rules (with stage targeting & `RESPONSE_LOST_AFTER_PROCESSING`), jqwik property-based conservation tests | Done (hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157), [#166](https://github.com/mhnuk2007/finsim/pull/166), [#167](https://github.com/mhnuk2007/finsim/pull/167)) |
+| Declarative Scenario DSL & deterministic replay: `finsim/scenario/v1` YAML/JSON fixtures, isolated execution, canonical trace normalization, `finsim scenario run --verify-replay` | Done (`docs/scenarios/lost-credit-timeout-and-recovery.yaml`, [#26](https://github.com/mhnuk2007/finsim/issues/26), [#167](https://github.com/mhnuk2007/finsim/pull/167)) |
 | Participant conformance test engine: `finsim verify --url` 7-phase validation suite | Done |
 | Transfer trace recording: stages, state changes, participant calls, injected faults, `finsim trace` | Done |
 | Multi-container Docker Compose quickstart: PostgreSQL 17, FinSim API, Bank A, Bank B, healthchecks | Done |
 | Dynamic network directory discovery: `GET /api/v1/networks/{id}/directory`, CLI `finsim directory` | Done |
-| CLI transfer, resolve, & fault management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove` | Done |
+| CLI transfer, resolve, fault, & scenario management: `finsim transfer`, `finsim resolve`, `finsim fault add/list/remove`, `finsim scenario run` | Done |
 | CLI participant base URL subpaths & context path preservation | Done ([#132](https://github.com/mhnuk2007/finsim/pull/132), [#133](https://github.com/mhnuk2007/finsim/pull/133)) |
 | Cloud deployment & security hardening: production Docker Compose stack, Caddy automated TLS + Swagger/OpenAPI routing, forwarded headers, CORS for web frontends, and SSRF/metadata guards (`internal-hosts`, ULA/CGNAT) | Done (`docker-compose.prod.yml`, `docs/deployment-oracle-cloud.md`, [#157](https://github.com/mhnuk2007/finsim/pull/157), [#162](https://github.com/mhnuk2007/finsim/pull/162), [#163](https://github.com/mhnuk2007/finsim/pull/163)) |
 | Web Simulation Cockpit: Vite + React 19 topology, transfer runner, ADR 0001 resolution, trace waterfall, fault rules (with PRNG `seed`), network management, `localStorage` Live history, Demo & Live API modes, Caddy container | Done (`web/`, [#135](https://github.com/mhnuk2007/finsim/pull/135), [#158](https://github.com/mhnuk2007/finsim/pull/158), [#162](https://github.com/mhnuk2007/finsim/pull/162), [#164](https://github.com/mhnuk2007/finsim/pull/164)) |
-| Milestone 1: four sample banks (Java, Python, Node.js, Go), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, Web Cockpit, Docker Compose quickstart | In progress (final release readiness) |
+| Milestone 1: four sample banks (Java, Python, Node.js, Go), `finsim/v1` minimal contract, payment state machine with `UNKNOWN`, fault injection, `finsim trace`, `finsim verify`, `finsim scenario run`, Web Cockpit, Docker Compose quickstart | In progress (final release readiness) |
 | Milestone 2: card authorize/capture/refund, virtual clock, ledger | Planned |
-| Milestone 3: disputes, reconciliation, scenario replay | Planned |
+| Milestone 3: disputes, reconciliation, live recording replay | Planned |
 | Clearing, RTGS, FX, screening, ISO 20022, billers, fees | Roadmap (help wanted) |
 
 ## Quickstart
@@ -127,6 +128,9 @@ finsim fault remove <faultId>
 # 6. Reconcile the hung transfer via participant status query
 finsim resolve <transactionId>
 finsim trace <transactionId>
+
+# 7. Run a declarative scenario YAML with isolated deterministic replay verification
+finsim scenario run docs/scenarios/lost-credit-timeout-and-recovery.yaml --verify-replay
 ```
 
 ## Core concepts

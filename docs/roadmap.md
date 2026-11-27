@@ -57,7 +57,7 @@ These appeared in early drafts of the README but have no architecture or require
 - **Commerce:** payment intents, subscriptions and dunning, split payments and marketplace payouts.
 - **Bill payments:** billers, presentment, validation, partial payments, aggregation.
 - **Fees:** declarative fee schedules, computation at trigger points, fee ledgers, disclosure, reversal on refund, tax on fees.
-- **Scenario DSL and CI packaging:** a declarative, versionable scenario format and a GitHub Action.
+- **Scenario DSL and CI packaging:** a declarative, versionable scenario format (`finsim/scenario/v1` DSL & isolated replay shipped in [#26](https://github.com/mhnuk2007/finsim/issues/26) / [#167](https://github.com/mhnuk2007/finsim/pull/167); reusable GitHub Action packaging planned).
 - **Snapshot, restore, and branch** of simulation environments.
 - **Compatibility modes:** Stripe- or Plaid-shaped endpoints (needs trademark and terms review).
 - **Rails:** ACH/Nacha, SEPA, and card-network message formats.

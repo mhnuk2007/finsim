@@ -83,7 +83,7 @@ Random sequences of duplicate requests, timeouts, and retries never change balan
 
 **16. Fault rules (DELAY, TIMEOUT, DUPLICATE_DELIVERY)** `[milestone-1]` `[done]`
 Implement `/api/v1/faults` and apply rules on outbound calls, with optional probability, count cap, and seed.
-*Status:* Completed in [#89](https://github.com/mhnuk2007/finsim/pull/89) (closed [#22](https://github.com/mhnuk2007/finsim/issues/22)). Deterministic rule engine in `finsim-sim`, REST endpoints in `finsim-api`, Flyway migration `V4__add_fault_rule_seed.sql`, and participant outbound HTTP interception in `TransferOrchestrator`.
+*Status:* Completed in [#89](https://github.com/mhnuk2007/finsim/pull/89) (closed [#22](https://github.com/mhnuk2007/finsim/issues/22)). Deterministic rule engine in `finsim-sim`, REST endpoints in `finsim-api`, Flyway migration `V4__add_fault_rule_seed.sql`, and participant outbound HTTP interception in `TransferOrchestrator`. Extended in [#167](https://github.com/mhnuk2007/finsim/pull/167) with stage-targeted rule matching (`stage`) and `RESPONSE_LOST_AFTER_PROCESSING`, and hardened in [#166](https://github.com/mhnuk2007/finsim/pull/166) (closing [#149](https://github.com/mhnuk2007/finsim/issues/149)) with `target` length (`<= 64`) validation, server-generated `faultId` UUIDs matching OpenAPI `readOnly: true`, and PRNG reset on registration.
 
 **17. Trace recording and endpoint** `[milestone-1]` `[done]`
 Record stages, outbound calls (request, response, duration), injected faults, and state changes; expose `GET /api/v1/transfers/{id}/trace`.
@@ -91,9 +91,9 @@ Record stages, outbound calls (request, response, duration), injected faults, an
 *Done when:* a faulted transfer's trace shows the fault and the resulting `UNKNOWN`.
 *Issue:* [#23](https://github.com/mhnuk2007/finsim/issues/23)
 
-**18. Scenario DSL and deterministic replay engine** `[milestone-1]`
-Declarative scenario format (`scenario.v1.yaml`), seeded faults, isolated execution fixtures, and normalized canonical trace replay verification.
-*Done when:* a faulted scenario replayed against an isolated fixture reproduces identical normalized trace events and final balance states.
+**18. Scenario DSL and deterministic replay engine** `[milestone-1]` `[done]`
+Declarative scenario format (`finsim/scenario/v1` YAML/JSON), seeded faults, isolated execution fixtures, and normalized canonical trace replay verification.
+*Status:* Completed by @innocentjasmine in [#167](https://github.com/mhnuk2007/finsim/pull/167) (closed [#26](https://github.com/mhnuk2007/finsim/issues/26)). Implemented `ScenarioParser`, `DeterministicIdGenerator` (domain-separated SHA-256), `TraceNormalizer`, `ReplayComparator`, `InMemoryScenarioEnvironment` + `ScenarioRunner` in `finsim-sim` (zero Spring/JPA dependencies), `ScenarioHttpAdapter` + stage-aware `RESPONSE_LOST_AFTER_PROCESSING` in `finsim-api`, `finsim scenario run [--verify-replay]` in `finsim-cli`, and sample fixture `docs/scenarios/lost-credit-timeout-and-recovery.yaml`.
 *Issue:* [#26](https://github.com/mhnuk2007/finsim/issues/26)
 
 ---
@@ -117,9 +117,9 @@ In-memory participant bank in `samples/bank-go` implementing the `finsim/v1` con
 *Status:* Completed by @sethmfuller in [#141](https://github.com/mhnuk2007/finsim/pull/141). Closed [#13](https://github.com/mhnuk2007/finsim/issues/13).
 
 
-**22. CLI: `register`, `transfer`, `trace`, `fault`** `[milestone-1]` `[done]`
-Commands that wrap the network API with human-readable output and `--json` raw machine-readable flag support.
-*Status:* Completed. Full suite of CLI commands implemented: `register`, `institutions`, `networks`, `join`, `directory`, `verify`, `transfer` (supporting `--from`, `--to`, `--amount`, `--currency`, `--reference`), `trace` (`finsim trace <id>`), `resolve` (`finsim resolve <id>`), and `fault` (`finsim fault add/list/remove`), with `--json` / `-j` and `-h` / `--help` flags across all commands.
+**22. CLI: `register`, `transfer`, `trace`, `fault`, `scenario`** `[milestone-1]` `[done]`
+Commands that wrap the network API and scenario engine with human-readable output and `--json` raw machine-readable flag support.
+*Status:* Completed. Full suite of CLI commands implemented: `register`, `institutions`, `networks`, `join`, `directory`, `verify`, `transfer` (supporting `--from`, `--to`, `--amount`, `--currency`, `--reference`), `trace` (`finsim trace <id>`), `resolve` (`finsim resolve <id>`), `fault` (`finsim fault add/list/remove`), and `scenario run` (`--verify-replay`, `--live`), with `--json` / `-j` and `-h` / `--help` flags across all commands.
 
 **23. CLI: `finsim verify --url`** `[milestone-1]` `[done]`
 Check health, capabilities, debit and credit, idempotent replay, idempotency conflict, status query, and error shape. Actionable messages: which check failed, why, how to fix.
