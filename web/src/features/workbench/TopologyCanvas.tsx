@@ -26,6 +26,7 @@ interface BankNodeData {
   faults: FaultRuleDto[];
   statusPill: StatusPillInfo | null;
   accounts: { acc: string; bal: number }[];
+  currency: string;
   isSource: boolean;
   isDest: boolean;
   hasFault: boolean;
@@ -40,6 +41,7 @@ function BankNode({ data }: NodeProps<Node<BankNodeData>>) {
     faults,
     statusPill,
     accounts,
+    currency,
     isSource,
     isDest,
     hasFault,
@@ -99,7 +101,7 @@ function BankNode({ data }: NodeProps<Node<BankNodeData>>) {
             <div key={acc} className="flex items-center justify-between">
               <span className="text-slate-500 dark:text-slate-400">{acc}</span>
               <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                {formatMoney(bal.toFixed(2), "USD")}
+                {formatMoney(bal.toFixed(2), currency)}
               </span>
             </div>
           ))}
@@ -153,6 +155,7 @@ interface TopologyCanvasProps {
   activeTransfer: TransferResponse | null;
   onQuickToggleTimeout: (institutionId: string) => void;
   balances?: Record<string, number>;
+  currency?: string;
 }
 
 export function TopologyCanvas({
@@ -161,6 +164,7 @@ export function TopologyCanvas({
   activeTransfer,
   onQuickToggleTimeout,
   balances,
+  currency = "USD",
 }: TopologyCanvasProps) {
   const [isDark, setIsDark] = useState(() =>
     typeof document !== "undefined"
@@ -190,6 +194,8 @@ export function TopologyCanvas({
     }
 
     const total = participants.length;
+    const isSettled =
+      activeTransfer?.state === "COMPLETED" || activeTransfer?.state === "REJECTED";
     const builtNodes: Node[] = [
       {
         id: "finsim-hub",
@@ -281,6 +287,7 @@ export function TopologyCanvas({
           faults: instFaults,
           statusPill,
           accounts,
+          currency,
           isSource,
           isDest,
           hasFault,
@@ -310,8 +317,8 @@ export function TopologyCanvas({
         sourceHandle: isLeft ? "right-src" : "hub-right-src",
         target: isLeft ? "finsim-hub" : inst.id,
         targetHandle: isLeft ? "hub-left-tgt" : "left-tgt",
-        animated: Boolean(isSource || isDest),
-        label: isSource ? "DEBIT" : isDest ? "CREDIT" : undefined,
+        animated: Boolean((isSource || (isDest && !debitFailed)) && !isSettled),
+        label: isSource ? "DEBIT" : isDest && !debitFailed ? "CREDIT" : undefined,
         labelStyle: {
           fill: isDark ? "#38bdf8" : "#0369a1",
           fontSize: 10,
@@ -335,12 +342,18 @@ export function TopologyCanvas({
     });
 
     return { nodes: builtNodes, edges: builtEdges };
-  }, [participants, faults, activeTransfer, onQuickToggleTimeout, balances, isDark]);
+  }, [participants, faults, activeTransfer, onQuickToggleTimeout, balances, currency, isDark]);
 
   const layoutKey = `${participants.map((p) => p.id).join(",")}:${Boolean(balances)}`;
+  const hasManyNodes = participants.length > 2;
 
   return (
-    <div className="h-[285px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+    <div
+      className={cn(
+        "w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950",
+        hasManyNodes ? "h-[380px]" : "h-[285px]",
+      )}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -351,8 +364,8 @@ export function TopologyCanvas({
         nodesDraggable={false}
         nodesConnectable={false}
         elementsSelectable={false}
-        panOnDrag={false}
-        zoomOnScroll={false}
+        panOnDrag={hasManyNodes}
+        zoomOnScroll={hasManyNodes}
       >
         <AutoFitView layoutKey={layoutKey} />
         <Background color={isDark ? "#334155" : "#cbd5e1"} gap={18} size={1} />

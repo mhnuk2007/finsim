@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
+  ChevronDown,
   Clock,
   Copy,
+  HelpCircle,
   Play,
   RefreshCw,
   Repeat,
@@ -44,6 +46,7 @@ export function WorkbenchView({
   const [reference, setReference] = useState("DEMO-001");
   const [idempotencyKey, setIdempotencyKey] = useState(() => generateIdempotencyKey("tx"));
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [showGuide, setShowGuide] = useState(false);
 
   const directoryQuery = useQuery({
     queryKey: ["directory", mode, networkId],
@@ -364,6 +367,7 @@ export function WorkbenchView({
             activeTransfer={activeTransfer}
             onQuickToggleTimeout={quickToggleTimeout}
             balances={demoBalances ?? undefined}
+            currency={activeTransfer?.money.currency ?? currency ?? "USD"}
           />
 
           {demoBalances && (
@@ -371,7 +375,7 @@ export function WorkbenchView({
               <span className="font-semibold text-slate-500">Demo Balances:</span>
               {Object.entries(demoBalances).map(([acc, bal]) => (
                 <span key={acc} className="tabular-nums font-mono text-slate-700 dark:text-slate-300">
-                  {acc}: <strong>{formatMoney(bal.toFixed(2), "USD")}</strong>
+                  {acc}: <strong>{formatMoney(bal.toFixed(2), activeTransfer?.money.currency ?? "USD")}</strong>
                 </span>
               ))}
             </div>
@@ -386,9 +390,11 @@ export function WorkbenchView({
             </h2>
 
             <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-from-inst" className="space-y-1 text-xs">
                 <span className="text-slate-500">From Institution</span>
                 <select
+                  id="tx-from-inst"
+                  name="fromInstitutionId"
                   value={fromInst}
                   onChange={(e) => setFromInst(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -402,9 +408,11 @@ export function WorkbenchView({
                   )}
                 </select>
               </label>
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-from-acc" className="space-y-1 text-xs">
                 <span className="text-slate-500">From Account</span>
                 <input
+                  id="tx-from-acc"
+                  name="fromAccountReference"
                   value={fromAcc}
                   onChange={(e) => setFromAcc(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -413,9 +421,11 @@ export function WorkbenchView({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-to-inst" className="space-y-1 text-xs">
                 <span className="text-slate-500">To Institution</span>
                 <select
+                  id="tx-to-inst"
+                  name="toInstitutionId"
                   value={toInst}
                   onChange={(e) => setToInst(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -429,9 +439,11 @@ export function WorkbenchView({
                   )}
                 </select>
               </label>
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-to-acc" className="space-y-1 text-xs">
                 <span className="text-slate-500">To Account</span>
                 <input
+                  id="tx-to-acc"
+                  name="toAccountReference"
                   value={toAcc}
                   onChange={(e) => setToAcc(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -440,17 +452,21 @@ export function WorkbenchView({
             </div>
 
             <div className="grid grid-cols-3 gap-2">
-              <label className="col-span-2 space-y-1 text-xs">
+              <label htmlFor="tx-amount" className="col-span-2 space-y-1 text-xs">
                 <span className="text-slate-500">Amount</span>
                 <input
+                  id="tx-amount"
+                  name="amount"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="tabular-nums w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-currency" className="space-y-1 text-xs">
                 <span className="text-slate-500">Currency</span>
                 <input
+                  id="tx-currency"
+                  name="currency"
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value.toUpperCase())}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -459,32 +475,37 @@ export function WorkbenchView({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1 text-xs">
+              <label htmlFor="tx-reference" className="space-y-1 text-xs">
                 <span className="text-slate-500">Reference</span>
                 <input
+                  id="tx-reference"
+                  name="reference"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
                 />
               </label>
-              <label className="space-y-1 text-xs">
-                <span className="flex items-center justify-between text-slate-500">
-                  Idempotency-Key
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center justify-between text-slate-500">
+                  <label htmlFor="tx-idempotency-key">Idempotency-Key</label>
                   <button
                     type="button"
                     onClick={() => setIdempotencyKey(generateIdempotencyKey("tx"))}
                     className="text-sky-500 hover:text-sky-400"
                     title="Generate new key"
+                    aria-label="Generate new idempotency key"
                   >
                     <RefreshCw className="h-3 w-3" />
                   </button>
-                </span>
+                </div>
                 <input
+                  id="tx-idempotency-key"
+                  name="idempotencyKey"
                   value={idempotencyKey}
                   onChange={(e) => setIdempotencyKey(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
                 />
-              </label>
+              </div>
             </div>
 
             {faults.length > 0 && (
@@ -540,7 +561,7 @@ export function WorkbenchView({
           resolving={resolveMutation.isPending}
         />
       ) : (
-        <div className="rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-800">
+        <div className="space-y-3 rounded-xl border border-dashed border-slate-300 p-6 text-center dark:border-slate-800">
           <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
             Send a transfer or select a preset above (e.g.{" "}
             <span className="font-semibold text-amber-600 dark:text-amber-400">
@@ -548,6 +569,56 @@ export function WorkbenchView({
             </span>
             ) to observe execution traces and ADR 0001 forward-recovery.
           </p>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowGuide((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/70"
+            >
+              <HelpCircle className="h-3.5 w-3.5 text-sky-500" />
+              What is FinSim? How ADR 0001 works
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${showGuide ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+
+          {showGuide && (
+            <div className="mx-auto max-w-3xl rounded-lg border border-slate-200 bg-white p-4 text-left text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">
+                    1. Safe Synthetic Network
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    FinSim simulates two-leg bank transfers (debit source → credit destination)
+                    between synthetic banks using <span className="font-mono">wf.transfer.v1</span>.
+                  </p>
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">
+                    2. Timeout ≠ Failed (UNKNOWN)
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    When a bank times out, FinSim enters <span className="font-mono">UNKNOWN</span>{" "}
+                    and blocks blind retries (<span className="font-mono">409</span>) so money is
+                    never double-spent.
+                  </p>
+                </div>
+                <div>
+                  <div className="font-semibold text-slate-900 dark:text-slate-100">
+                    3. Ground-Truth Resolution
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                    Clicking <strong>Resolve Transfer</strong> queries participant status endpoints
+                    to forward-recover (<span className="font-mono">COMPLETED</span>) or safely
+                    reverse/reject.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { createFinSimApi } from "@/api/client";
 import type { ConnectionMode, TransferResponse } from "@/api/types";
@@ -13,6 +13,7 @@ interface TracesViewProps {
   selected: TransferResponse | null;
   onSelect: (tx: TransferResponse) => void;
   onUpdate: (tx: TransferResponse) => void;
+  onClearHistory?: () => void;
 }
 
 export function TracesView({
@@ -21,6 +22,7 @@ export function TracesView({
   selected,
   onSelect,
   onUpdate,
+  onClearHistory,
 }: TracesViewProps) {
   const api = createFinSimApi(mode);
   const queryClient = useQueryClient();
@@ -57,12 +59,28 @@ export function TracesView({
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Transfers & Lookup
-        </h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Transfers & Lookup
+          </h2>
+          {history.length > 0 && onClearHistory && (
+            <button
+              type="button"
+              onClick={onClearHistory}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              title="Clear recent transfer list"
+            >
+              <Trash2 className="h-3 w-3" />
+              Clear
+            </button>
+          )}
+        </div>
 
         <form onSubmit={handleLookup} className="flex gap-2">
           <input
+            id="trace-lookup-id"
+            name="transactionId"
+            aria-label="Lookup transactionId"
             placeholder="Lookup transactionId..."
             value={lookupId}
             onChange={(e) => setLookupId(e.target.value)}
@@ -70,6 +88,7 @@ export function TracesView({
           />
           <button
             type="submit"
+            aria-label="Search transfer"
             className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800 dark:bg-sky-600 dark:hover:bg-sky-500"
           >
             <Search className="h-3.5 w-3.5" />
@@ -83,7 +102,7 @@ export function TracesView({
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {history.length === 0 ? (
             <p className="py-6 text-center text-xs text-slate-500">
-              No transfers in this session yet. Execute one in Workbench or look up a transactionId above.
+              No transfers recorded yet. Execute one in Workbench or look up a transactionId above.
             </p>
           ) : (
             history.map((tx) => (
@@ -118,14 +137,22 @@ export function TracesView({
         </div>
       </div>
 
-      <div className="lg:col-span-2">
+      <div className="space-y-3 lg:col-span-2">
         {selected ? (
-          <TraceWaterfall
-            transfer={selected}
-            trace={traceQuery.data}
-            onResolve={(id) => resolveMutation.mutate(id)}
-            resolving={resolveMutation.isPending}
-          />
+          <>
+            {traceQuery.isError && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 font-mono text-xs text-amber-700 dark:text-amber-300">
+                Could not fetch trace for {selected.transactionId}:{" "}
+                {traceQuery.error instanceof Error ? traceQuery.error.message : "Trace unavailable"}
+              </div>
+            )}
+            <TraceWaterfall
+              transfer={selected}
+              trace={traceQuery.data}
+              onResolve={(id) => resolveMutation.mutate(id)}
+              resolving={resolveMutation.isPending}
+            />
+          </>
         ) : (
           <div className="rounded-xl border border-dashed border-slate-300 p-10 text-center text-xs text-slate-500 dark:border-slate-800">
             Select a transfer to inspect its execution trace waterfall.

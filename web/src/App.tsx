@@ -27,6 +27,12 @@ import { FaultsView } from "@/features/faults/FaultsView";
 import { NetworkView } from "@/features/network/NetworkView";
 import { TracesView } from "@/features/traces/TracesView";
 import { WorkbenchView } from "@/features/workbench/WorkbenchView";
+import {
+  clearTransferHistory,
+  loadTransferHistory,
+  saveTransferHistory,
+  upsertTransferInList,
+} from "@/lib/historyStorage";
 import { cn } from "@/lib/utils";
 import { resetDemoEngine } from "@/mocks/demoEngine";
 
@@ -43,20 +49,27 @@ function AppContent() {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  const initialMode: ConnectionMode =
+    import.meta.env.VITE_DEFAULT_MODE === "live" ? "live" : "demo";
+
   const [tab, setTab] = useState<TabId>("workbench");
-  const [mode, setMode] = useState<ConnectionMode>(
-    import.meta.env.VITE_DEFAULT_MODE === "live" ? "live" : "demo",
-  );
+  const [mode, setMode] = useState<ConnectionMode>(initialMode);
   const [dark, setDark] = useState(true);
-  const [networkId] = useState("sandbox");
-  const [history, setHistory] = useState<TransferResponse[]>([]);
-  const [activeTransfer, setActiveTransfer] = useState<TransferResponse | null>(null);
+  const [networkId, setNetworkId] = useState("sandbox");
+
+  // Runtime Base URL configuration for Live Mode
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => getStoredApiBaseUrl());
+  const [history, setHistory] = useState<TransferResponse[]>(() =>
+    loadTransferHistory(initialMode, getStoredApiBaseUrl()),
+  );
+  const [activeTransfer, setActiveTransfer] = useState<TransferResponse | null>(() => {
+    const initial = loadTransferHistory(initialMode, getStoredApiBaseUrl());
+    return initial[0] ?? null;
+  });
 
   // Responsive sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Runtime Base URL configuration for Live Mode
-  const [apiBaseUrl, setApiBaseUrl] = useState(() => getStoredApiBaseUrl());
   const [isUrlPopoverOpen, setIsUrlPopoverOpen] = useState(false);
   const [tempUrlInput, setTempUrlInput] = useState(apiBaseUrl);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -88,29 +101,43 @@ function AppContent() {
     enabled: mode === "live",
   });
 
+  const networksQuery = useQuery({
+    queryKey: ["networks", mode, apiBaseUrl],
+    queryFn: () => createFinSimApi(mode, apiBaseUrl).listNetworks(),
+  });
+
   const upsertTransfer = (tx: TransferResponse) => {
     setActiveTransfer(tx);
     setHistory((prev) => {
-      const idx = prev.findIndex((t) => t.transactionId === tx.transactionId);
-      if (idx === -1) return [tx, ...prev];
-      const next = [...prev];
-      next[idx] = tx;
+      const next = upsertTransferInList(prev, tx);
+      saveTransferHistory(mode, next, apiBaseUrl);
       return next;
     });
   };
 
+  const handleClearHistory = () => {
+    setHistory([]);
+    setActiveTransfer(null);
+    clearTransferHistory(mode, apiBaseUrl);
+    showToast("Cleared recent transfer list", "info");
+  };
+
   const handleModeChange = (nextMode: ConnectionMode) => {
     setMode(nextMode);
-    setActiveTransfer(null);
-    setHistory([]);
+    const loaded = loadTransferHistory(nextMode, apiBaseUrl);
+    setHistory(loaded);
+    setActiveTransfer(loaded[0] ?? null);
+    setNetworkId("sandbox");
     queryClient.clear();
     showToast(`Switched to ${nextMode === "live" ? "Live API" : "Demo"} mode`, "info");
   };
 
   const handleResetDemo = () => {
     resetDemoEngine();
+    clearTransferHistory("demo");
     setActiveTransfer(null);
     setHistory([]);
+    setNetworkId("sandbox");
     queryClient.invalidateQueries();
     showToast("Demo balances, faults, and history reset", "info");
   };
@@ -120,7 +147,12 @@ function AppContent() {
     setStoredApiBaseUrl(trimmed);
     setApiBaseUrl(trimmed);
     setIsUrlPopoverOpen(false);
-    queryClient.invalidateQueries({ queryKey: ["health"] });
+    if (mode === "live") {
+      const loaded = loadTransferHistory("live", trimmed);
+      setHistory(loaded);
+      setActiveTransfer(loaded[0] ?? null);
+    }
+    queryClient.invalidateQueries();
     showToast(`API Base URL updated: ${trimmed || "default (proxy)"}`, "info");
   };
 
@@ -227,12 +259,38 @@ function AppContent() {
               <Menu className="h-4 w-4" />
             </button>
 
-            <span className="font-mono text-xs font-semibold text-slate-500">
-              network:
-            </span>
-            <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold dark:border-slate-700 dark:bg-slate-800">
-              {networkId}
-            </span>
+            {(networksQuery.data?.length ?? 0) > 1 ? (
+              <>
+                <label
+                  htmlFor="active-network"
+                  className="font-mono text-xs font-semibold text-slate-500"
+                >
+                  network:
+                </label>
+                <select
+                  id="active-network"
+                  name="networkId"
+                  value={networkId}
+                  onChange={(e) => setNetworkId(e.target.value)}
+                  className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold dark:border-slate-700 dark:bg-slate-800"
+                >
+                  {(networksQuery.data ?? []).map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.id}
+                    </option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <span className="font-mono text-xs font-semibold text-slate-500">
+                  network:
+                </span>
+                <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 font-mono text-xs font-semibold dark:border-slate-700 dark:bg-slate-800">
+                  {networkId}
+                </span>
+              </>
+            )}
             <SyntheticBadge />
           </div>
 
@@ -312,6 +370,9 @@ function AppContent() {
                     </p>
 
                     <input
+                      id="live-api-base-url"
+                      name="apiBaseUrl"
+                      aria-label="Live API Base URL"
                       type="text"
                       placeholder="e.g. http://localhost:8080"
                       value={tempUrlInput}
@@ -397,10 +458,20 @@ function AppContent() {
               selected={activeTransfer}
               onSelect={setActiveTransfer}
               onUpdate={upsertTransfer}
+              onClearHistory={handleClearHistory}
             />
           )}
           {tab === "faults" && <FaultsView mode={mode} />}
-          {tab === "network" && <NetworkView mode={mode} networkId={networkId} />}
+          {tab === "network" && (
+            <NetworkView
+              mode={mode}
+              networkId={networkId}
+              onSelectNetwork={(id) => {
+                setNetworkId(id);
+                showToast(`Switched active network to ${id}`, "info");
+              }}
+            />
+          )}
         </main>
       </div>
     </div>

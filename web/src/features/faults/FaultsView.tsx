@@ -18,6 +18,7 @@ export function FaultsView({ mode }: FaultsViewProps) {
   const [times, setTimes] = useState("1");
   const [delayMs, setDelayMs] = useState("500");
   const [probability, setProbability] = useState("1.0");
+  const [seed, setSeed] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const faultsQuery = useQuery({
@@ -38,6 +39,7 @@ export function FaultsView({ mode }: FaultsViewProps) {
         times: times ? Number(times) : undefined,
         delayMs: type === "DELAY" && delayMs ? Number(delayMs) : undefined,
         probability: probability ? Number(probability) : 1.0,
+        seed: seed.trim() ? Number(seed) : undefined,
       }),
     onSuccess: () => {
       setErrorMsg(null);
@@ -53,6 +55,22 @@ export function FaultsView({ mode }: FaultsViewProps) {
     },
   });
 
+  const clearAllMutation = useMutation({
+    mutationFn: async () => {
+      const current = faultsQuery.data ?? [];
+      for (const f of current) {
+        if (f.faultId) {
+          await api.deleteFault(f.faultId);
+        }
+      }
+    },
+    onSuccess: () => {
+      setErrorMsg(null);
+      queryClient.invalidateQueries({ queryKey: ["faults", mode] });
+    },
+    onError: (err) => setErrorMsg(err instanceof Error ? err.message : "Failed to clear faults"),
+  });
+
   const faults = faultsQuery.data ?? [];
   const institutions = institutionsQuery.data ?? [];
 
@@ -63,9 +81,11 @@ export function FaultsView({ mode }: FaultsViewProps) {
           Add Fault Rule
         </h2>
 
-        <label className="block space-y-1 text-xs">
+        <label htmlFor="fault-target" className="block space-y-1 text-xs">
           <span className="text-slate-500">Target Institution</span>
           <select
+            id="fault-target"
+            name="target"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -80,9 +100,11 @@ export function FaultsView({ mode }: FaultsViewProps) {
           </select>
         </label>
 
-        <label className="block space-y-1 text-xs">
+        <label htmlFor="fault-type" className="block space-y-1 text-xs">
           <span className="text-slate-500">Fault Type</span>
           <select
+            id="fault-type"
+            name="type"
             value={type}
             onChange={(e) => setType(e.target.value as FaultType)}
             className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
@@ -94,9 +116,11 @@ export function FaultsView({ mode }: FaultsViewProps) {
         </label>
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="space-y-1 text-xs">
+          <label htmlFor="fault-times" className="space-y-1 text-xs">
             <span className="text-slate-500">Times (optional)</span>
             <input
+              id="fault-times"
+              name="times"
               type="number"
               min={1}
               value={times}
@@ -104,9 +128,11 @@ export function FaultsView({ mode }: FaultsViewProps) {
               className="tabular-nums w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
             />
           </label>
-          <label className="space-y-1 text-xs">
+          <label htmlFor="fault-probability" className="space-y-1 text-xs">
             <span className="text-slate-500">Probability (0–1)</span>
             <input
+              id="fault-probability"
+              name="probability"
               type="number"
               step="0.1"
               min={0}
@@ -118,10 +144,25 @@ export function FaultsView({ mode }: FaultsViewProps) {
           </label>
         </div>
 
+        <label htmlFor="fault-seed" className="block space-y-1 text-xs">
+          <span className="text-slate-500">PRNG Seed (optional, deterministic)</span>
+          <input
+            id="fault-seed"
+            name="seed"
+            type="number"
+            placeholder="e.g. 42"
+            value={seed}
+            onChange={(e) => setSeed(e.target.value)}
+            className="tabular-nums w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-xs dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+
         {type === "DELAY" && (
-          <label className="block space-y-1 text-xs">
+          <label htmlFor="fault-delay-ms" className="block space-y-1 text-xs">
             <span className="text-slate-500">Delay (ms)</span>
             <input
+              id="fault-delay-ms"
+              name="delayMs"
               type="number"
               min={50}
               step={50}
@@ -146,9 +187,22 @@ export function FaultsView({ mode }: FaultsViewProps) {
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
-        <h2 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">
-          Active Fault Rules ({faults.length})
-        </h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Active Fault Rules ({faults.length})
+          </h2>
+          {faults.length > 0 && (
+            <button
+              type="button"
+              disabled={clearAllMutation.isPending}
+              onClick={() => clearAllMutation.mutate()}
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2.5 py-1 text-xs font-medium text-rose-600 transition hover:bg-rose-500/10 disabled:opacity-50 dark:border-slate-700 dark:text-rose-400"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {clearAllMutation.isPending ? "Clearing..." : "Clear All"}
+            </button>
+          )}
+        </div>
 
         {faults.length === 0 ? (
           <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-xs text-slate-500 dark:border-slate-800">
@@ -180,6 +234,7 @@ export function FaultsView({ mode }: FaultsViewProps) {
                       p={f.probability ?? 1}
                       {f.times ? `, times=${f.times}` : ""}
                       {f.delayMs ? `, delay=${f.delayMs}ms` : ""}
+                      {f.seed !== undefined && f.seed !== null ? `, seed=${f.seed}` : ""}
                     </td>
                     <td className="py-2.5 text-right">
                       <button
