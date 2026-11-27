@@ -12,7 +12,7 @@ Thanks for your interest. FinSim is a young project, so early contributions have
 
 ## Getting set up
 
-Prerequisites: Java 21, Docker and Docker Compose, Node.js 20+ (for the Node sample and `web/` Cockpit), Python 3.10+ (for the Python sample), Go 1.22+ (for the Go sample).
+Prerequisites: Java 21, Docker and Docker Compose, Node.js 20+ (for the Node sample and `web/` Cockpit), Python 3.11+ (for the Python sample), Go 1.22+ (for the Go sample).
 
 ```bash
 git clone https://github.com/mhnuk2007/finsim.git

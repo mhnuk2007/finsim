@@ -28,7 +28,7 @@ Internet ─────────► │  [ Ports 80 & 443: Caddy Reverse Pro
 ### Security Safeguards:
 - **No Direct Database Exposure:** PostgreSQL runs strictly on an internal Docker bridge network (`finsim-net`). Port 5432 is **never** published to the VM host or public internet.
 - **SSRF & Metadata Defense:** The `prod` profile sets `allow-private-addresses: false` (blocking RFC 1918, loopback, CGNAT `100.64.0.0/10`, and IPv6 ULA `fc00::/7`) while explicitly allowing only Docker bridge service names (`FINSIM_REGISTRY_INTERNAL_HOSTS=bank-a,bank-b`), and unconditionally rejects link-local metadata addresses (`169.254.169.254`, `fe80::/10`), preventing any external user from probing OCI instance metadata or internal networks.
-- **CORS Restricted:** Cross-Origin Resource Sharing is controlled via `FINSIM_CORS_ALLOWED_ORIGINS` to allow only your designated frontend (e.g. Vercel dashboard).
+- **CORS Restricted:** Cross-Origin Resource Sharing is controlled via `FINSIM_CORS_ALLOWED_ORIGINS` to allow your same-origin HTTPS domain (for example, `https://<your-domain>`) and any approved external dashboards (e.g. a Vercel deployment or local dev server).
 - **Automated TLS:** Caddy terminates TLS and negotiates certificates automatically via Let's Encrypt / ZeroSSL with zero manual renewal needed.
 
 ---
@@ -132,15 +132,15 @@ docker compose version
    # Strong generated password:
    POSTGRES_PASSWORD=generate_a_random_32_char_secret_here
 
-   # Your domain name pointing to the VM's public IP (e.g. api.yourdomain.com)
+   # Your domain name pointing to the VM's public IP (e.g. finsim.yourdomain.com)
    # If testing directly on IP without a domain, set DOMAIN_NAME=:80
-   DOMAIN_NAME=api.yourdomain.com
+   DOMAIN_NAME=finsim.yourdomain.com
 
    # Optional email for Let's Encrypt certificate notices
    ACME_EMAIL=your-email@example.com
 
-   # Allowed CORS origins for web dashboard (e.g., Vercel)
-   FINSIM_CORS_ALLOWED_ORIGINS=https://finsim.vercel.app,http://localhost:3000
+   # Allowed CORS origins (include https://<DOMAIN_NAME> and any external dashboards)
+   FINSIM_CORS_ALLOWED_ORIGINS=https://finsim.yourdomain.com,https://finsim.vercel.app,http://localhost:3000
 
    # Registry SSRF policy (blocks private addresses while allowing internal container hosts bank-a,bank-b)
    FINSIM_REGISTRY_ALLOW_PRIVATE_ADDRESSES=false
@@ -148,12 +148,13 @@ docker compose version
    ```
 
 > [!TIP]
-> **Swap Space for Micro Instances (`VM.Standard.E2.1.Micro`):**
-> If deploying on a 1 GB RAM Micro instance, configure 2 GB of swap memory to prevent the Linux OOM killer during Maven/Gradle builds or JVM startup:
+> **Swap Space & Builds for Micro Instances (`VM.Standard.E2.1.Micro`):**
+> If deploying on a 1 GB RAM Micro instance, configure 2 GB of swap memory to prevent the Linux OOM killer during Gradle/Vite builds or JVM startup:
 > ```bash
 > sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile
 > echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 > ```
+> To avoid slow in-Docker Gradle compilation on 1 GB RAM VMs, you can build sequentially (`docker compose -f docker-compose.prod.yml build --parallel 1`) or pre-build `./gradlew :finsim-api:bootJar --no-daemon -x test` locally and copy the jar into `finsim-api/build/libs/` (`finsim-api/Dockerfile` automatically reuses a pre-built executable jar when present).
 
 4. Build and start the production stack:
    ```bash

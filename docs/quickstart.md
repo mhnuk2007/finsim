@@ -11,7 +11,7 @@
 - **Docker and Docker Compose** (for PostgreSQL)
 - **Java 21+** (for building FinSim and Java sample bank from source)
 - **Node.js 20+** (optional, for running the Node sample bank or `web/` Simulation Cockpit)
-- **Python 3.10+** (optional, for running the Python sample bank)
+- **Python 3.11+** (optional, for running the Python sample bank)
 - **Go 1.22+** (optional, for running the Go sample bank)
 - **Git**
 

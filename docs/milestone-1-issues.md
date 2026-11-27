@@ -134,7 +134,7 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 ## Web & Frontend
 
 **25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[done]`
-- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets, Trace Waterfall, Fault Rules, Network Directory, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL`), `caddy:2-alpine` Dockerfile, and production Caddy proxy integration in `docker-compose.prod.yml`. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135); wired into production Caddy in [#158](https://github.com/mhnuk2007/finsim/pull/158)*).
+- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets and ADR 0001 guide, Trace Waterfall, Fault Rules (with PRNG `seed` and bulk clear), Network Directory (multi-network switcher, capability checkboxes, member joining), `localStorage` transfer history persistence, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL` and runtime URL override), `caddy:2-alpine` Dockerfile, and production Caddy proxy integration in `docker-compose.prod.yml`. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135); wired into production Caddy in [#158](https://github.com/mhnuk2007/finsim/pull/158); hardened and polished in [#162](https://github.com/mhnuk2007/finsim/pull/162) and [#164](https://github.com/mhnuk2007/finsim/pull/164)*).
 - **Phase 2 (`site/`):** Dedicated Next.js Marketing & Docs Hub for landing page, SEO, and educational guides.
 *Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 
@@ -149,11 +149,12 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 
 **27. Cloud deployment & security hardening** `[milestone-1]` `[done]`
 Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS reverse proxy (`deploy/caddy/Caddyfile`), CORS control (`FINSIM_CORS_ALLOWED_ORIGINS`), and SSRF/metadata guards.
-*Hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157) & [#158](https://github.com/mhnuk2007/finsim/pull/158):*
+*Hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157), [#158](https://github.com/mhnuk2007/finsim/pull/158), [#162](https://github.com/mhnuk2007/finsim/pull/162), & [#163](https://github.com/mhnuk2007/finsim/pull/163):*
 - ~~[#136](https://github.com/mhnuk2007/finsim/issues/136)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added `finsim.registry.internal-hosts` (`FINSIM_REGISTRY_INTERNAL_HOSTS`) for Docker bridge participants (`bank-a,bank-b`).
 - ~~[#137](https://github.com/mhnuk2007/finsim/issues/137)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added shared `IpAddressSupport` blocking IPv6 ULA (`fc00::/7`) and CGNAT (`100.64.0.0/10`).
 - ~~[#144](https://github.com/mhnuk2007/finsim/issues/144), [#145](https://github.com/mhnuk2007/finsim/issues/145), [#146](https://github.com/mhnuk2007/finsim/issues/146), [#147](https://github.com/mhnuk2007/finsim/issues/147)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Fixed `/resolve` `@Version` optimistic locking, `PendingAction.REVERSE_DEBIT` resolution, SSRF `SecurityException` propagation in `queryLegStatus`, and atomic `FaultService` decrement retries.
-- Open follow-ups: [#138](https://github.com/mhnuk2007/finsim/issues/138) (`/swagger-ui.html` Caddy route) and [#139](https://github.com/mhnuk2007/finsim/issues/139) (`ACME_EMAIL` env pass-through).
+- ~~[#138](https://github.com/mhnuk2007/finsim/issues/138)~~ *(Closed by @dansonofbass in [#163](https://github.com/mhnuk2007/finsim/pull/163))*: Restored Swagger UI/OpenAPI routing in `deploy/caddy/Caddyfile` (`@swagger path /swagger-ui* /v3/api-docs*`) with `OpenApiDocumentationTests` regression coverage, paired with `server.forward-headers-strategy: framework` in [#162](https://github.com/mhnuk2007/finsim/pull/162).
+- Open follow-up: [#139](https://github.com/mhnuk2007/finsim/issues/139) (`ACME_EMAIL` env pass-through).
 
 **28. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
 Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, and `README.md` synchronized with the actual codebase capabilities.
