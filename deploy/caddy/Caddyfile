@@ -1,7 +1,9 @@
-{$DOMAIN_NAME:localhost} {
-    # Auto-TLS with ACME email if provided
+{
+    # Global options: auto-TLS ACME contact email if provided
     {$ACME_EMAIL_DIRECTIVE:}
+}
 
+{$DOMAIN_NAME:localhost} {
     # Security headers
     header {
         X-Content-Type-Options "nosniff"
