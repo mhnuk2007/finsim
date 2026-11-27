@@ -95,7 +95,7 @@ Simulation rules injected dynamically to simulate real-world network anomalies.
 |---|---|---|---|
 | `id` | `VARCHAR(64)` | `PRIMARY KEY` | Unique rule identifier |
 | `target_institution` | `VARCHAR(64)` | `NOT NULL` | Target institution slug to intercept |
-| `fault_type` | `VARCHAR(32)` | `NOT NULL` | `DELAY`, `TIMEOUT`, `DUPLICATE_DELIVERY`, or `CORRUPT_RESPONSE` |
+| `fault_type` | `VARCHAR(32)` | `NOT NULL` | `DELAY`, `TIMEOUT`, or `DUPLICATE_DELIVERY` |
 | `delay_ms` | `INTEGER` | Nullable | Milliseconds of simulated delay |
 | `probability` | `DOUBLE PRECISION` | `NOT NULL DEFAULT 1.0` | Probability between 0.0 and 1.0 |
 | `remaining_count` | `INTEGER` | Nullable | Executions remaining before expiration (null = infinite) |
@@ -171,9 +171,9 @@ Mapping of institutions to the networks they belong to.
 ## 3. Database Execution & Testing
 
 ### Local Development via Docker Compose
-For running the standalone database locally:
+For running the standalone database locally (or omit `postgres` to start the full `deploy/docker-compose.yml` stack):
 ```bash
-docker compose -f deploy/docker-compose.yml up -d
+docker compose -f deploy/docker-compose.yml up -d postgres
 ```
 This spins up PostgreSQL 17 on host port **`5433`** (mapped from container port `5432` to avoid conflicting with any default local PostgreSQL instance on `5432`). Default credentials:
 - Database: `finsim`

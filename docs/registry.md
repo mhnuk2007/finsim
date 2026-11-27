@@ -45,7 +45,7 @@ finsim institutions --id my-bank     # show one
 finsim join --network sandbox --institution my-bank
 finsim networks --id sandbox
 finsim directory --network sandbox   # participant directory discovery
-finsim networks --id sandbox --directory
+finsim networks --id sandbox --directory   # requires non-blank --id (#169)
 ```
 
 The CLI talks to `http://localhost:8080` by default. Use `--finsim <url>` or the `FINSIM_URL` environment variable to change it. Output is the JSON FinSim returns; failures print the HTTP status and body to stderr and exit with code 1.

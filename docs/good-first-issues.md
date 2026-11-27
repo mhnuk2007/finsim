@@ -123,9 +123,23 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 | **[#149](https://github.com/mhnuk2007/finsim/issues/149)** *(Closed)* | `finsim-api` / `finsim-sim` | ~~**`FaultService.register` validation & PRNG reset**~~ *(Completed by @maestro-00 in [#166](https://github.com/mhnuk2007/finsim/pull/166))*: Enforced `target` `<= 64` char bounds (`400 BAD_REQUEST`), switched to server-generated `faultId` UUIDs matching OpenAPI `readOnly: true`, and reset PRNG state on registration. |
 | **[#152](https://github.com/mhnuk2007/finsim/issues/152)** | Samples / `bank-java` | **Java sample bank request validation & 404 shape**: Enforce `reference` and `Money.amount` format validation and return `NOT_FOUND` JSON instead of Spring Boot's default 404 body. |
 | **[#153](https://github.com/mhnuk2007/finsim/issues/153)** | `finsim-cli` | **CLI URI path-segment encoding**: Encode reserved characters (`#`, `?`, `%`, `[`, `]`) properly in `FinSimClient.resolveUri` instead of only spaces. |
-| **[#154](https://github.com/mhnuk2007/finsim/issues/154)** | `finsim-cli` | **`finsim networks --directory` flag validation**: Report a clear usage error when `--directory` is passed without `--id`. |
+| **[#154](https://github.com/mhnuk2007/finsim/issues/154)** *(Closed)* | `finsim-cli` | ~~**`finsim networks --directory` flag validation**~~ *(Completed by @dansonofbass in [#169](https://github.com/mhnuk2007/finsim/pull/169))*: Require a non-blank `--id` when `--directory` is passed to `finsim networks`, throwing `IllegalArgumentException` (usage exit code `2`) before issuing any HTTP request. |
 | **[#155](https://github.com/mhnuk2007/finsim/issues/155)** | Contract / Docs | **OpenAPI error responses completeness**: Document implemented `400` and `404` error responses on transfer and fault endpoints in `contract/finsim-v1.openapi.yaml`. |
 | **[#156](https://github.com/mhnuk2007/finsim/issues/156)** | `finsim-api` / Testing | **Fix stale `:rev` key stub in `TransferWorkflowTests`**: Update Mockito stub to align with `transfer.getId() + "-rev"` so reversal payload assertions execute properly. |
+
+---
+
+### Milestone 1 & Milestone 2 Roadmap Enhancements
+*Newly opened platform API, documentation, and CI enhancements (`#170`–`#175`).*
+
+| Issue | Area | Description |
+|---|---|---|
+| **[#170](https://github.com/mhnuk2007/finsim/issues/170)** | `finsim-api` / `web` / `contract` | **Paginated `GET /api/v1/transfers` & `Transfer` metadata**: Expose `networkId`, `createdAt`, `updatedAt`, and paginated filtering (`TransferPage` / `TransferSummary`) with Flyway indexes and Cockpit live history integration. |
+| **[#171](https://github.com/mhnuk2007/finsim/issues/171)** | `finsim-registry` / `samples` / `finsim-cli` | **Optional `ACCOUNT_INQUIRY` capability**: Capability-gated `GET /finsim/v1/accounts/{accountReference}/balance` across the 4 sample banks while preserving the 4-endpoint mandatory participant contract. |
+| **[#172](https://github.com/mhnuk2007/finsim/issues/172)** | `finsim-core` / `finsim-api` | **Double-entry ledger HTTP read endpoints (`/api/v1/ledger/*`)**: Composite `(institutionId, accountReference, currency)` balance and journal entry queries aligned with `NUMERIC(22, 8)` (depends on `#28`). |
+| **[#173](https://github.com/mhnuk2007/finsim/issues/173)** | `finsim-api` / `finsim-sim` / Security | **Virtual clock REST API (`/api/v1/clock`) & shared `prod` control guard**: `GET /api/v1/clock`, `POST /api/v1/clock/advance`, and `finsim.simulation.control-enabled` safety toggle (depends on `#27`, coordinates with `#32`). |
+| **[#174](https://github.com/mhnuk2007/finsim/issues/174)** | Documentation / Contract | **Canonical API Endpoint Catalogue (`docs/api-catalogue.md`)**: Authoritative index separating `/api/v1/*` Platform routes from `/finsim/v1/*` Participant routes and aligning M2/M3 naming. |
+| **[#175](https://github.com/mhnuk2007/finsim/issues/175)** | CI / `web` | **Web Simulation Cockpit CI workflow**: Add a dedicated `web` job to `.github/workflows/ci.yml` running `npm ci`, `typecheck`, Vitest, Vite production build, and Docker check. |
 
 ## How to Contribute
 

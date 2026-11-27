@@ -42,7 +42,7 @@ FinSim refuses to route a leg to an institution that hasn't declared the require
 
 **8. Dynamic network directory discovery endpoint** `[milestone-1]` `[done]`
 Expose `GET /api/v1/networks/{networkId}/directory` returning registered, active participants and declared capabilities. Decouples sample participants, CLI, and Web Cockpit (#29) from hardcoded URLs.
-*Status:* Completed. Implemented in `finsim-registry` (`NetworkDirectory`, `Registry.directory`, `NetworkController`), CLI commands (`finsim directory`, `finsim networks --directory`), and verified in unit and API integration tests.
+*Status:* Completed. Implemented in `finsim-registry` (`NetworkDirectory`, `Registry.directory`, `NetworkController`), CLI commands (`finsim directory`, `finsim networks --directory`), and verified in unit and API integration tests (hardened by @dansonofbass in [#169](https://github.com/mhnuk2007/finsim/pull/169) closing [#154](https://github.com/mhnuk2007/finsim/issues/154) to require a non-blank `--id` on `finsim networks --directory`).
 *Issue:* [#31](https://github.com/mhnuk2007/finsim/issues/31)
 
 ---
@@ -134,7 +134,7 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 ## Web & Frontend
 
 **25. Split frontend architecture: Simulation Cockpit (web/) & Marketing Hub (site/)** `[milestone-1]` `[done]`
-- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets and ADR 0001 guide, Trace Waterfall, Fault Rules (with PRNG `seed` and bulk clear), Network Directory (multi-network switcher, capability checkboxes, member joining), `localStorage` transfer history persistence, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL` and runtime URL override), `caddy:2-alpine` Dockerfile, and production Caddy proxy integration in `docker-compose.prod.yml`. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135); wired into production Caddy in [#158](https://github.com/mhnuk2007/finsim/pull/158); hardened and polished in [#162](https://github.com/mhnuk2007/finsim/pull/162) and [#164](https://github.com/mhnuk2007/finsim/pull/164)*).
+- **Phase 1 (`web/`):** Standalone Vite + React 19 + TypeScript Simulation Cockpit with interactive React Flow topology, Workbench chaos presets and ADR 0001 guide, Trace Waterfall, Fault Rules (with PRNG `seed` and bulk clear), Network Directory (multi-network switcher, capability checkboxes, member joining), `localStorage` transfer history persistence, zero-backend Demo Mode, Live API mode (`VITE_API_BASE_URL` and runtime URL override), `caddy:2-alpine` Dockerfile, and production Caddy proxy integration in `docker-compose.prod.yml`. (*Completed by @sunilk429 in [#135](https://github.com/mhnuk2007/finsim/pull/135); wired into production Caddy in [#158](https://github.com/mhnuk2007/finsim/pull/158); hardened and polished in [#162](https://github.com/mhnuk2007/finsim/pull/162) and [#164](https://github.com/mhnuk2007/finsim/pull/164); dedicated CI workflow tracked in [#175](https://github.com/mhnuk2007/finsim/issues/175)*).
 - **Phase 2 (`site/`):** Dedicated Next.js Marketing & Docs Hub for landing page, SEO, and educational guides.
 *Issue:* [#134](https://github.com/mhnuk2007/finsim/issues/134) (supersedes [#29](https://github.com/mhnuk2007/finsim/issues/29))
 
@@ -157,7 +157,7 @@ Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS
 - Open follow-up: [#139](https://github.com/mhnuk2007/finsim/issues/139) (`ACME_EMAIL` env pass-through).
 
 **28. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
-Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, and `README.md` synchronized with the actual codebase capabilities.
+Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, `docs/good-first-issues.md`, `docs/roadmap.md`, and `README.md` synchronized with the actual codebase capabilities (canonical API Endpoint Catalogue tracked in [#174](https://github.com/mhnuk2007/finsim/issues/174)).
 
 **29. Name and launch checks** `[milestone-1]` `[partially-done]`
 Name search, `SECURITY` contact, Code of Conduct file, issue and PR templates, 10 labeled good first issues.
