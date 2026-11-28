@@ -1,6 +1,6 @@
 # The `finsim/v1` contract
 
-> **Status: draft (milestone-1 sketch).** The machine-readable spec is [`contract/finsim-v1.openapi.yaml`](../contract/finsim-v1.openapi.yaml). If this page and the spec disagree, the spec wins. Changes to the contract require an ADR (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
+> **Status: Milestone 1 contract (`contract/finsim-v1.openapi.yaml`).** The machine-readable OpenAPI 3.1 spec is [`contract/finsim-v1.openapi.yaml`](../contract/finsim-v1.openapi.yaml) (Spectral-linted in CI, with full transfer and fault `400`/`404`/`409` error response schemas completed in [#182](https://github.com/mhnuk2007/finsim/pull/182)). If this page and the spec disagree, the spec wins. Changes to the contract require an ADR (see [CONTRIBUTING.md](../CONTRIBUTING.md)).
 
 ## The idea
 
@@ -46,7 +46,7 @@ FinSim never reads or writes your database. It only knows what your institution 
 3. **Money is a decimal string plus a currency** (`"100.00"`, `"USD"`), never a floating-point number.
 4. **Participants report only what they know.** A leg status is `ACCEPTED`, `COMPLETED`, or `REJECTED`. A participant never reports `UNKNOWN`.
 5. **`UNKNOWN` belongs to FinSim.** When a call to a participant times out, FinSim marks the transfer `UNKNOWN` (never `REJECTED`). It then blocks retries (`409 RECONCILIATION_REQUIRED`) until `resolve` has asked each institution what actually happened.
-6. **Rejection reason codes vs. API error codes.** A transfer rejected during orchestration is not an HTTP error: it is returned as a `Transfer` with `state: REJECTED` and a domain `reasonCode` (using ISO 20022 reason codes like `AC04`, `AM04`, `DUPL`, or FinSim platform codes like `FINSIM_TIMEOUT`), with `emittedBy` specifying `FINSIM`, `SOURCE`, or `DESTINATION`. Conversely, HTTP 4xx/5xx responses return the `Error` schema with machine-readable API error codes (`BAD_REQUEST`, `IDEMPOTENCY_CONFLICT`, `RECONCILIATION_REQUIRED`, `NOT_FOUND`).
+6. **Rejection reason codes vs. API error codes.** A transfer rejected during orchestration is not an HTTP error: it is returned as a `Transfer` with `state: REJECTED` and a domain `reasonCode` (using ISO 20022 reason codes like `AC04`, `AM04`, `DUPL`, or FinSim platform codes like `FINSIM_TIMEOUT`), with `emittedBy` specifying `FINSIM`, `SOURCE`, or `DESTINATION`. Conversely, HTTP 4xx/5xx responses return the `Error` schema with machine-readable API error codes (`INVALID_REQUEST`, `BAD_REQUEST`, `IDEMPOTENCY_CONFLICT`, `RECONCILIATION_REQUIRED`, `NETWORK_NOT_FOUND`, `NOT_FOUND`).
 7. **Everything is `SYNTHETIC`.** Requests and responses carry `"provenance": "SYNTHETIC"`.
 
 ## Transfer states

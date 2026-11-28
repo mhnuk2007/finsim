@@ -24,15 +24,15 @@ Changing a domain's fidelity tag requires a pull request that updates this page.
 ### M1: Hello, transaction
 Four independent sample banks (Java, Python, Node.js/TypeScript, Go) transact through the `finsim/v1` contract.
 Transfer state machine with `UNKNOWN`, idempotency, reason codes, fault injection (delay, timeout, duplicate), trace, `finsim verify`, Web Simulation Cockpit (`web/`), Docker Compose quickstart.
-Issue list: [milestone-1-issues.md](milestone-1-issues.md) (final release-readiness follow-ups: canonical API catalogue [#174](https://github.com/mhnuk2007/finsim/issues/174) and Web Cockpit CI [#175](https://github.com/mhnuk2007/finsim/issues/175)).
+Issue list: [milestone-1-issues.md](milestone-1-issues.md) (final release-readiness follow-ups: canonical API catalogue [#174](https://github.com/mhnuk2007/finsim/issues/174), Web Cockpit CI [#175](https://github.com/mhnuk2007/finsim/issues/175), and hosted `prod` mutating-endpoint guard [#177](https://github.com/mhnuk2007/finsim/issues/177)).
 
 ### M2: Cards, time, and money movement
 - **Card authorization model** (section 6): authorize, capture, partial capture, void, expiry, refund.
-- **Virtual clock** for business time (authorization expiry, due dates) — [#27](https://github.com/mhnuk2007/finsim/issues/27), HTTP endpoints & shared `prod` control guard — [#173](https://github.com/mhnuk2007/finsim/issues/173).
+- **Virtual clock** for business time (authorization expiry, due dates) — core `finsim-sim` engine, Two Clocks `TraceEvent.virtualAt`, Scenario DSL `startTime`/`ADVANCE_TIME`, and [virtual-clock.md](architecture/virtual-clock.md) shipped in [#27](https://github.com/mhnuk2007/finsim/issues/27) / [#185](https://github.com/mhnuk2007/finsim/pull/185); HTTP endpoints & shared `prod` control guard open in [#173](https://github.com/mhnuk2007/finsim/issues/173) (ADR 0003 under review in PR [#186](https://github.com/mhnuk2007/finsim/pull/186)).
 - **Simple ledger** with balanced double-entry journals and invariant tests — [#28](https://github.com/mhnuk2007/finsim/issues/28), read-only `/api/v1/ledger/*` endpoints — [#172](https://github.com/mhnuk2007/finsim/issues/172).
 - **Simulation state snapshot and reset engine** for CI and deterministic replay — [#32](https://github.com/mhnuk2007/finsim/issues/32).
 - **Transfer history & optional account inquiry APIs**: paginated `GET /api/v1/transfers` — [#170](https://github.com/mhnuk2007/finsim/issues/170); optional capability-gated `ACCOUNT_INQUIRY` balance endpoint — [#171](https://github.com/mhnuk2007/finsim/issues/171).
-- Sample merchant, gateway, and ATM institutions (cash dispense fault simulation) — [#33](https://github.com/mhnuk2007/finsim/issues/33).
+- **Sample merchant, gateway, and ATM institutions** (cash dispense fault simulation) — [#33](https://github.com/mhnuk2007/finsim/issues/33) (ADR 0002 under review in PR [#178](https://github.com/mhnuk2007/finsim/pull/178)), paired with interactive Cockpit ATM simulation in [#179](https://github.com/mhnuk2007/finsim/issues/179).
 - Fault types extended: failed capture, delayed webhook, hardware dispense failure.
 
 ### M3: Disputes, reconciliation, replay

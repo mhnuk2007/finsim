@@ -19,7 +19,7 @@ FinSim uses **PostgreSQL 17** exclusively across all environments. There is no H
   - `updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP`
   - `version BIGINT NOT NULL DEFAULT 0` for optimistic locking to prevent lost concurrent updates.
 - **Strict Provenance Guard**: Tables storing financial or institutional records include a `provenance` column constrained to `'SYNTHETIC'` (`CHECK (provenance = 'SYNTHETIC')`). This prevents synthetic simulation data from ever being confused with live production data.
-- **Deterministic Time**: Aggregates such as `Transfer` never call system clock lookups directly (`Instant.now()`). Timestamped operations accept an explicit `Instant` or `Clock`, guaranteeing exact replayability and compatibility with scenario time travelers and virtual clocks.
+- **Deterministic Time**: Aggregates such as `Transfer` never call system clock lookups directly (`Instant.now()`). Timestamped operations accept an explicit `Instant` or `Clock`, guaranteeing exact replayability and compatibility with scenario time travelers and `finsim-sim`'s [`VirtualClock`](architecture/virtual-clock.md) (closed [#27](https://github.com/mhnuk2007/finsim/issues/27) in [#185](https://github.com/mhnuk2007/finsim/pull/185)).
 - **Slugs vs. UUIDs**: Core financial transactions (`transfers`) and fault configurations (`fault_rules`) use generated identifiers (`VARCHAR(64)`), while registry entities use human-readable slugs (e.g., `bank-a`, `sandbox`) checked with `^[a-z0-9][a-z0-9-]{1,62}$` because they serve as public IDs in CLI commands, configuration files, and REST endpoints.
 
 ---

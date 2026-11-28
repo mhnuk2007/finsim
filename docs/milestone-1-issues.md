@@ -22,7 +22,7 @@ PostgreSQL 17 + Flyway; base migration with common columns (`id`, `created_at`, 
 
 **4. Publish the contract** `[milestone-1]` `[done]`
 Add `contract/finsim-v1.openapi.yaml`, validate it in CI, generate server stubs or models from it.
-*Status:* Completed. OpenAPI 3.1 specification written and verified with Spectral in CI (closed [#14](https://github.com/mhnuk2007/finsim/issues/14) in [#42](https://github.com/mhnuk2007/finsim/pull/42)).
+*Status:* Completed. OpenAPI 3.1 specification written and verified with Spectral in CI (closed [#14](https://github.com/mhnuk2007/finsim/issues/14) in [#42](https://github.com/mhnuk2007/finsim/pull/42); transfer and fault `400`/`404`/`409` error response schemas completed by @dansonofbass in [#182](https://github.com/mhnuk2007/finsim/pull/182) closing [#155](https://github.com/mhnuk2007/finsim/issues/155)).
 
 ---
 
@@ -59,7 +59,7 @@ Transfer aggregate root with 10 strictly permitted transitions across `CREATED`,
 
 **11. Transfer workflow: debit then credit** `[milestone-1]` `[done]`
 Orchestrate `DEBIT` at source institution, then `CREDIT` at destination institution over HTTP, using stage-level idempotency keys derived deterministically from the transaction id.
-*Status:* Completed. Implemented in `TransferOrchestrator` and `ParticipantClient`, verified across comprehensive scenarios in `TransferWorkflowTests` (including automatic compensating source debit reversal on destination credit rejection, closed [#45](https://github.com/mhnuk2007/finsim/issues/45) in [#50](https://github.com/mhnuk2007/finsim/pull/50)). Hardened against participant 4xx suppression (closed [#52](https://github.com/mhnuk2007/finsim/issues/52)), blank field validation crashes (closed [#80](https://github.com/mhnuk2007/finsim/issues/80)), invalid currency format and scale > 8 (closed [#81](https://github.com/mhnuk2007/finsim/issues/81)), non-existent network 404s (closed [#67](https://github.com/mhnuk2007/finsim/issues/67)), capability mismatch reason codes (closed [#68](https://github.com/mhnuk2007/finsim/issues/68)), and malformed JSON handling (closed [#64](https://github.com/mhnuk2007/finsim/issues/64)) in [#96](https://github.com/mhnuk2007/finsim/pull/96).
+*Status:* Completed. Implemented in `TransferOrchestrator` and `ParticipantClient`, verified across comprehensive scenarios in `TransferWorkflowTests` (including automatic compensating source debit reversal on destination credit rejection, closed [#45](https://github.com/mhnuk2007/finsim/issues/45) in [#50](https://github.com/mhnuk2007/finsim/pull/50), and reversal idempotency key/payload test verification fixed by @dansonofbass in [#181](https://github.com/mhnuk2007/finsim/pull/181) closing [#156](https://github.com/mhnuk2007/finsim/issues/156)). Hardened against participant 4xx suppression (closed [#52](https://github.com/mhnuk2007/finsim/issues/52)), blank field validation crashes (closed [#80](https://github.com/mhnuk2007/finsim/issues/80)), invalid currency format and scale > 8 (closed [#81](https://github.com/mhnuk2007/finsim/issues/81)), non-existent network 404s (closed [#67](https://github.com/mhnuk2007/finsim/issues/67)), capability mismatch reason codes (closed [#68](https://github.com/mhnuk2007/finsim/issues/68)), and malformed JSON handling (closed [#64](https://github.com/mhnuk2007/finsim/issues/64)) in [#96](https://github.com/mhnuk2007/finsim/pull/96), plus 64-character identifier bounds and `NUMERIC(22, 8)` money format/upper-bound validation in [#183](https://github.com/mhnuk2007/finsim/pull/183) (closing [#148](https://github.com/mhnuk2007/finsim/issues/148)).
 
 **12. Timeout handling and `UNKNOWN`** `[milestone-1]` `[done]`
 A timed-out outbound call moves the transfer to `UNKNOWN` (never `REJECTED`). Retrying the transfer while `UNKNOWN` returns `409 RECONCILIATION_REQUIRED`.
@@ -93,7 +93,7 @@ Record stages, outbound calls (request, response, duration), injected faults, an
 
 **18. Scenario DSL and deterministic replay engine** `[milestone-1]` `[done]`
 Declarative scenario format (`finsim/scenario/v1` YAML/JSON), seeded faults, isolated execution fixtures, and normalized canonical trace replay verification.
-*Status:* Completed by @innocentjasmine in [#167](https://github.com/mhnuk2007/finsim/pull/167) (closed [#26](https://github.com/mhnuk2007/finsim/issues/26)). Implemented `ScenarioParser`, `DeterministicIdGenerator` (domain-separated SHA-256), `TraceNormalizer`, `ReplayComparator`, `InMemoryScenarioEnvironment` + `ScenarioRunner` in `finsim-sim` (zero Spring/JPA dependencies), `ScenarioHttpAdapter` + stage-aware `RESPONSE_LOST_AFTER_PROCESSING` in `finsim-api`, `finsim scenario run [--verify-replay]` in `finsim-cli`, and sample fixture `docs/scenarios/lost-credit-timeout-and-recovery.yaml`.
+*Status:* Completed by @innocentjasmine in [#167](https://github.com/mhnuk2007/finsim/pull/167) (closed [#26](https://github.com/mhnuk2007/finsim/issues/26)) and extended with deterministic virtual clock time travel (`DiscreteVirtualClock`, Two Clocks `TraceEvent.virtualAt`, `startTime` + `ADVANCE_TIME` steps, `--live` usage guard, and [virtual-clock.md](architecture/virtual-clock.md)) in [#185](https://github.com/mhnuk2007/finsim/pull/185) (closing [#27](https://github.com/mhnuk2007/finsim/issues/27)). Implemented `ScenarioParser`, `DeterministicIdGenerator` (domain-separated SHA-256), `TraceNormalizer`, `ReplayComparator`, `InMemoryScenarioEnvironment` + `ScenarioRunner` in `finsim-sim` (zero Spring/JPA dependencies), `ScenarioHttpAdapter` + stage-aware `RESPONSE_LOST_AFTER_PROCESSING` in `finsim-api`, `finsim scenario run [--verify-replay]` in `finsim-cli`, and sample fixture `docs/scenarios/lost-credit-timeout-and-recovery.yaml`.
 *Issue:* [#26](https://github.com/mhnuk2007/finsim/issues/26)
 
 ---
@@ -102,7 +102,7 @@ Declarative scenario format (`finsim/scenario/v1` YAML/JSON), seeded faults, iso
 
 **19. Sample bank in Java** `[milestone-1]` `[done]`
 Minimal Spring Boot bank in `samples/bank-java` implementing the participant contract with in-memory accounts, idempotency store, and seeded balances (`bank-a` on port 9001, `bank-b` on port 9002).
-*Status:* Completed. Passed both unit ledger tests (`BankServiceTest`) and HTTP contract compliance tests (`ContractHttpTest`).
+*Status:* Completed. Passed both unit ledger tests (`BankServiceTest`) and HTTP contract compliance tests (`ContractHttpTest`), and hardened with `reference` / `money.amount` validation plus structured `404 NOT_FOUND` / `405 INVALID_REQUEST` JSON error responses in [#184](https://github.com/mhnuk2007/finsim/pull/184) (closing [#152](https://github.com/mhnuk2007/finsim/issues/152)).
 
 **20. Sample bank in Python (FastAPI)** `[milestone-1]` `[done]`
 FastAPI participant bank in `samples/bank-python` implementing the `finsim/v1` contract with `decimal.Decimal` arithmetic, in-memory accounts, idempotency store, and pytest verification suite.
@@ -149,15 +149,16 @@ Cross-platform developer verification scripts (`scripts/verify.sh`, `scripts/ver
 
 **27. Cloud deployment & security hardening** `[milestone-1]` `[done]`
 Production Docker Compose stack (`docker-compose.prod.yml`), Caddy automated TLS reverse proxy (`deploy/caddy/Caddyfile`), CORS control (`FINSIM_CORS_ALLOWED_ORIGINS`), and SSRF/metadata guards.
-*Hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157), [#158](https://github.com/mhnuk2007/finsim/pull/158), [#162](https://github.com/mhnuk2007/finsim/pull/162), & [#163](https://github.com/mhnuk2007/finsim/pull/163):*
+*Hardened in [#157](https://github.com/mhnuk2007/finsim/pull/157), [#158](https://github.com/mhnuk2007/finsim/pull/158), [#162](https://github.com/mhnuk2007/finsim/pull/162), [#163](https://github.com/mhnuk2007/finsim/pull/163), & [#180](https://github.com/mhnuk2007/finsim/pull/180):*
 - ~~[#136](https://github.com/mhnuk2007/finsim/issues/136)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added `finsim.registry.internal-hosts` (`FINSIM_REGISTRY_INTERNAL_HOSTS`) for Docker bridge participants (`bank-a,bank-b`).
 - ~~[#137](https://github.com/mhnuk2007/finsim/issues/137)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Added shared `IpAddressSupport` blocking IPv6 ULA (`fc00::/7`) and CGNAT (`100.64.0.0/10`).
 - ~~[#144](https://github.com/mhnuk2007/finsim/issues/144), [#145](https://github.com/mhnuk2007/finsim/issues/145), [#146](https://github.com/mhnuk2007/finsim/issues/146), [#147](https://github.com/mhnuk2007/finsim/issues/147)~~ *(Closed in [#157](https://github.com/mhnuk2007/finsim/pull/157))*: Fixed `/resolve` `@Version` optimistic locking, `PendingAction.REVERSE_DEBIT` resolution, SSRF `SecurityException` propagation in `queryLegStatus`, and atomic `FaultService` decrement retries.
 - ~~[#138](https://github.com/mhnuk2007/finsim/issues/138)~~ *(Closed by @dansonofbass in [#163](https://github.com/mhnuk2007/finsim/pull/163))*: Restored Swagger UI/OpenAPI routing in `deploy/caddy/Caddyfile` (`@swagger path /swagger-ui* /v3/api-docs*`) with `OpenApiDocumentationTests` regression coverage, paired with `server.forward-headers-strategy: framework` in [#162](https://github.com/mhnuk2007/finsim/pull/162).
-- Open follow-up: [#139](https://github.com/mhnuk2007/finsim/issues/139) (`ACME_EMAIL` env pass-through).
+- ~~[#139](https://github.com/mhnuk2007/finsim/issues/139)~~ *(Closed in [#180](https://github.com/mhnuk2007/finsim/pull/180))*: Passed `ACME_EMAIL` and `ACME_EMAIL_DIRECTIVE` into the Caddy service in `docker-compose.prod.yml` and configured the global email directive in `deploy/caddy/Caddyfile`.
+- Open follow-up: [#177](https://github.com/mhnuk2007/finsim/issues/177) (guard unauthenticated mutating `/api/v1/*` endpoints in hosted `prod` deployments).
 
 **28. Docs pass** `[milestone-1]` `[docs]` `[in-progress]`
-Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, `docs/good-first-issues.md`, `docs/roadmap.md`, and `README.md` synchronized with the actual codebase capabilities (canonical API Endpoint Catalogue tracked in [#174](https://github.com/mhnuk2007/finsim/issues/174)).
+Keep `docs/quickstart.md`, `docs/database.md`, `docs/registry.md`, `docs/contract-v1.md`, `docs/deployment-oracle-cloud.md`, `docs/architecture/virtual-clock.md`, `docs/good-first-issues.md`, `docs/roadmap.md`, and `README.md` synchronized with the actual codebase capabilities (canonical API Endpoint Catalogue tracked in [#174](https://github.com/mhnuk2007/finsim/issues/174)).
 
 **29. Name and launch checks** `[milestone-1]` `[partially-done]`
 Name search, `SECURITY` contact, Code of Conduct file, issue and PR templates, 10 labeled good first issues.

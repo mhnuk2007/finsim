@@ -29,7 +29,10 @@ Internet ─────────► │  [ Ports 80 & 443: Caddy Reverse Pro
 - **No Direct Database Exposure:** PostgreSQL runs strictly on an internal Docker bridge network (`finsim-net`). Port 5432 is **never** published to the VM host or public internet.
 - **SSRF & Metadata Defense:** The `prod` profile sets `allow-private-addresses: false` (blocking RFC 1918, loopback, CGNAT `100.64.0.0/10`, and IPv6 ULA `fc00::/7`) while explicitly allowing only Docker bridge service names (`FINSIM_REGISTRY_INTERNAL_HOSTS=bank-a,bank-b`), and unconditionally rejects link-local metadata addresses (`169.254.169.254`, `fe80::/10`), preventing any external user from probing OCI instance metadata or internal networks.
 - **CORS Restricted:** Cross-Origin Resource Sharing is controlled via `FINSIM_CORS_ALLOWED_ORIGINS` to allow your same-origin HTTPS domain (for example, `https://<your-domain>`) and any approved external dashboards (e.g. a Vercel deployment or local dev server).
-- **Automated TLS:** Caddy terminates TLS and negotiates certificates automatically via Let's Encrypt / ZeroSSL with zero manual renewal needed.
+- **Automated TLS:** Caddy terminates TLS and negotiates certificates automatically via Let's Encrypt / ZeroSSL with zero manual renewal needed (`ACME_EMAIL` in `.env` sets the global Caddy `email` directive automatically).
+
+> [!WARNING]
+> **Public exposure boundary:** Per [SECURITY.md](../SECURITY.md), FinSim's `/api/v1/*` endpoints currently have no authentication. While `allow-private-addresses: false` blocks SSRF into private networks and cloud metadata, any visitor who can reach Caddy's `/api/*` routes on a public IP can register public institutions, inject faults, or execute synthetic transfers on the shared sandbox. Until [#177](https://github.com/mhnuk2007/finsim/issues/177) lands the `prod` mutating-endpoint guard, restrict public demos to isolated sandboxes or firewall/IP-allowlist port 80/443 to trusted operators.
 
 ---
 

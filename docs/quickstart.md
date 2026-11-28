@@ -291,17 +291,18 @@ finsim trace <transactionId>
 
 ### Declarative Scenario DSL & Deterministic Replay
 
-To run reproducible multi-step chaos workflows declaratively from YAML or JSON (including stage-targeted faults like `RESPONSE_LOST_AFTER_PROCESSING`) and verify canonical trace + exact `BigDecimal` balance equivalence across isolated runs:
+To run reproducible multi-step chaos workflows declaratively from YAML or JSON (including stage-targeted faults like `RESPONSE_LOST_AFTER_PROCESSING` and virtual-clock `startTime` / `ADVANCE_TIME` time-travel steps) and verify canonical trace + exact `BigDecimal` balance equivalence across isolated runs:
 
 ```bash
 # Run the built-in lost-credit timeout & ADR 0001 recovery scenario with isolated replay verification
 finsim scenario run docs/scenarios/lost-credit-timeout-and-recovery.yaml --verify-replay
 
-# Machine-readable JSON summary (supports --live for single-pass execution against a running API server)
+# Machine-readable JSON summary (supports --live for single-pass wall-clock execution against a running API server;
+# scenarios containing ADVANCE_TIME steps require offline/in-memory mode and are rejected under --live)
 finsim scenario run docs/scenarios/lost-credit-timeout-and-recovery.yaml --verify-replay --json
 ```
 
-See [docs/scenarios/lost-credit-timeout-and-recovery.yaml](scenarios/lost-credit-timeout-and-recovery.yaml) for a complete `finsim/scenario/v1` example.
+See [docs/scenarios/lost-credit-timeout-and-recovery.yaml](scenarios/lost-credit-timeout-and-recovery.yaml) for a complete `finsim/scenario/v1` example and [architecture/virtual-clock.md](architecture/virtual-clock.md) for the deterministic Virtual Clock and Two Clocks architecture.
 
 ---
 
@@ -322,6 +323,7 @@ You can implement the `finsim/v1` participant contract in any language:
 
 - See [`web/README.md`](../web/README.md) to run the browser Simulation Cockpit (Demo Mode or Live API).
 - See [deployment-oracle-cloud.md](deployment-oracle-cloud.md) for production Docker Compose + Caddy deployment.
+- See [architecture/virtual-clock.md](architecture/virtual-clock.md) for the Virtual Clock and Two Clocks deterministic simulation architecture.
 - See [registry.md](registry.md) for details on registry APIs and SSRF URL protection.
 - See [database.md](database.md) for database schema, Flyway migrations, and Testcontainers setup.
 - See [roadmap.md](roadmap.md) for the long-term roadmap beyond Milestone 1.

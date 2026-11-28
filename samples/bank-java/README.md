@@ -41,6 +41,7 @@ curl http://localhost:9001/sample/accounts                        # demo helper:
 | Contract rule | Behavior here |
 |---|---|
 | Idempotency | Same key and body: original result with `200`. Same key, different body: `409 IDEMPOTENCY_CONFLICT`. Missing key: `400`. |
+| Request & bounds validation | Enforces non-blank `reference` (max 140 chars) and decimal `money.amount` (`^\d+(\.\d{1,8})?$`), plus structured JSON `404 NOT_FOUND` and `405 INVALID_REQUEST` error responses ([#184](https://github.com/mhnuk2007/finsim/pull/184)). |
 | Business rejection | `422` with a reason code, remembered so the leg can be queried as `REJECTED`. |
 | Status query | `GET /finsim/v1/payments/{transactionId}?leg=...` returns the leg, or `404` if the bank never received it. FinSim uses this to resolve `UNKNOWN` transfers (ADR 0001). |
 | Reversal | A normal `CREDIT` with its own `transactionId` and `reversalOf` set. It must match a completed debit, and a debit can be reversed only once. |
@@ -57,7 +58,7 @@ Reason codes used: `AC01` unknown account, `AC04` closed account, `AM02` invalid
 ./gradlew :sample-bank-java:test
 ```
 
-`BankServiceTest` covers the ledger rules directly. `ContractHttpTest` calls the running bank over HTTP the way FinSim will; those checks are the starting point for `finsim verify` (issue #25).
+`BankServiceTest` covers the ledger and validation rules directly. `ContractHttpTest` calls the running bank over HTTP the way FinSim and the `finsim verify` conformance suite (closed [#25](https://github.com/mhnuk2007/finsim/issues/25)) do.
 
 ## Limits (on purpose)
 
