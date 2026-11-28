@@ -19,6 +19,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -1130,5 +1131,45 @@ class TransferWorkflowTests {
     HttpResponse<String> finalState = getTransfer(txId);
     assertThat(finalState.statusCode()).isEqualTo(200);
     assertThat(JsonPath.<String>read(finalState.body(), "$.state")).isEqualTo("COMPLETED");
+  }
+
+  @Test
+  @DisplayName(
+      "Issue #148: Account/institution identifiers > 64 chars and out-of-range/non-decimal amounts return HTTP 400 INVALID_REQUEST")
+  void oversizedIdentifiersAndOutOfBoundsAmountsReturnBadRequest() throws Exception {
+    String over64 = "A".repeat(65);
+
+    List<String> invalidPayloads =
+        List.of(
+            transferJson("bank-a", over64, "bank-b", "ACC-2", "10.00", "REF-FROM-ACC-65"),
+            transferJson("bank-a", "ACC-1", "bank-b", over64, "10.00", "REF-TO-ACC-65"),
+            transferJson(over64, "ACC-1", "bank-b", "ACC-2", "10.00", "REF-FROM-INST-65"),
+            transferJson("bank-a", "ACC-1", over64, "ACC-2", "10.00", "REF-TO-INST-65"),
+            transferJson(
+                "bank-a", "ACC-1", "bank-b", "ACC-2", "100000000000000.00", "REF-AMT-OVERFLOW"),
+            transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "1e+15", "REF-AMT-SCI"),
+            transferJson("bank-a", "ACC-1", "bank-b", "ACC-2", "+10.00", "REF-AMT-PLUS"));
+
+    for (String payload : invalidPayloads) {
+      HttpResponse<String> res = postTransfer("sandbox", randomKey(), payload);
+      assertThat(res.statusCode()).isEqualTo(400);
+      assertThat(JsonPath.<String>read(res.body(), "$.code")).isEqualTo("INVALID_REQUEST");
+    }
+
+    // Exact maximum boundaries (64-char accountReference and 14 integer digits + 8 fraction digits)
+    String max64Acc = "A".repeat(64);
+    String maxAmount = "99999999999999.99999999";
+    when(participantClient.applyLeg(eq("http://localhost:9001"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("deb-max"));
+    when(participantClient.applyLeg(eq("http://localhost:9002"), any(), any()))
+        .thenReturn(PaymentCallOutcome.completed("cred-max"));
+
+    HttpResponse<String> maxRes =
+        postTransfer(
+            "sandbox",
+            randomKey(),
+            transferJson("bank-a", max64Acc, "bank-b", max64Acc, maxAmount, "REF-MAX-BOUNDS"));
+    assertThat(maxRes.statusCode()).isEqualTo(201);
+    assertThat(JsonPath.<String>read(maxRes.body(), "$.state")).isEqualTo("COMPLETED");
   }
 }

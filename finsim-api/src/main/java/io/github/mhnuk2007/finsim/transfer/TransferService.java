@@ -30,6 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 public class TransferService {
 
   private static final Pattern CURRENCY_PATTERN = Pattern.compile("^[A-Z]{3}$");
+  private static final Pattern AMOUNT_PATTERN = Pattern.compile("^\\d+(\\.\\d{1,8})?$");
+  private static final BigDecimal MAX_EXCLUSIVE_AMOUNT = new BigDecimal("100000000000000");
+  private static final int MAX_IDENTIFIER_LENGTH = 64;
 
   public record TransferExecutionResult(Transfer transfer, boolean isReplay) {}
 
@@ -189,6 +192,14 @@ public class TransferService {
       throw new InvalidTransferRequestException(
           "'from' institutionId and accountReference are required and must not be blank.");
     }
+    if (req.from().institutionId().length() > MAX_IDENTIFIER_LENGTH) {
+      throw new InvalidTransferRequestException(
+          "'from' institutionId must not exceed " + MAX_IDENTIFIER_LENGTH + " characters.");
+    }
+    if (req.from().accountReference().length() > MAX_IDENTIFIER_LENGTH) {
+      throw new InvalidTransferRequestException(
+          "'from' accountReference must not exceed " + MAX_IDENTIFIER_LENGTH + " characters.");
+    }
     if (req.to() == null
         || req.to().institutionId() == null
         || req.to().institutionId().isBlank()
@@ -196,6 +207,14 @@ public class TransferService {
         || req.to().accountReference().isBlank()) {
       throw new InvalidTransferRequestException(
           "'to' institutionId and accountReference are required and must not be blank.");
+    }
+    if (req.to().institutionId().length() > MAX_IDENTIFIER_LENGTH) {
+      throw new InvalidTransferRequestException(
+          "'to' institutionId must not exceed " + MAX_IDENTIFIER_LENGTH + " characters.");
+    }
+    if (req.to().accountReference().length() > MAX_IDENTIFIER_LENGTH) {
+      throw new InvalidTransferRequestException(
+          "'to' accountReference must not exceed " + MAX_IDENTIFIER_LENGTH + " characters.");
     }
     if (req.from().institutionId().equals(req.to().institutionId())
         && req.from().accountReference().equals(req.to().accountReference())) {
@@ -213,17 +232,18 @@ public class TransferService {
       throw new InvalidTransferRequestException(
           "currency must be three uppercase letters: " + req.money().currency());
     }
-    try {
-      BigDecimal amt = new BigDecimal(req.money().amount());
-      if (amt.signum() <= 0) {
-        throw new InvalidTransferRequestException("Transfer amount must be strictly positive.");
-      }
-      if (amt.scale() > 8) {
-        throw new InvalidTransferRequestException(
-            "amount has more than 8 decimal places: " + req.money().amount());
-      }
-    } catch (NumberFormatException ex) {
-      throw new InvalidTransferRequestException("Invalid decimal amount: " + req.money().amount());
+    String amountText = req.money().amount();
+    if (!AMOUNT_PATTERN.matcher(amountText).matches()) {
+      throw new InvalidTransferRequestException(
+          "amount must be a decimal string with up to 8 decimal places: " + amountText);
+    }
+    BigDecimal amt = new BigDecimal(amountText);
+    if (amt.signum() <= 0) {
+      throw new InvalidTransferRequestException("Transfer amount must be strictly positive.");
+    }
+    if (amt.compareTo(MAX_EXCLUSIVE_AMOUNT) >= 0) {
+      throw new InvalidTransferRequestException(
+          "amount exceeds maximum supported value (14 integer digits): " + amountText);
     }
     if (req.reference() == null || req.reference().isBlank()) {
       throw new InvalidTransferRequestException("'reference' is required and must not be blank.");
