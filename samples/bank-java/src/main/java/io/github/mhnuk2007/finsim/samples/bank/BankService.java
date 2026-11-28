@@ -55,6 +55,7 @@ public class BankService {
   private record Stored(PaymentLegRequest request, Outcome outcome) {}
 
   private static final Pattern CURRENCY = Pattern.compile("[A-Z]{3}");
+  private static final Pattern AMOUNT = Pattern.compile("^\\d+(\\.\\d{1,8})?$");
 
   private final BankProperties props;
   private final Map<String, BigDecimal> balances = new TreeMap<>();
@@ -210,13 +211,14 @@ public class BankService {
     if (isBlank(r.accountReference())) {
       return "accountReference is required.";
     }
+    if (isBlank(r.reference()) || r.reference().length() > 140) {
+      return "reference is required (up to 140 characters).";
+    }
     if (r.money() == null || isBlank(r.money().amount()) || isBlank(r.money().currency())) {
       return "money.amount and money.currency are required.";
     }
-    try {
-      new BigDecimal(r.money().amount());
-    } catch (NumberFormatException e) {
-      return "money.amount must be a decimal string.";
+    if (!AMOUNT.matcher(r.money().amount()).matches()) {
+      return "money.amount must be a decimal string with at most 8 decimal places.";
     }
     if (!CURRENCY.matcher(r.money().currency()).matches()) {
       return "money.currency must be three uppercase letters.";

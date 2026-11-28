@@ -140,4 +140,22 @@ class ContractHttpTest {
     assertThat((String) JsonPath.read(found.body(), "$.status")).isEqualTo("COMPLETED");
     assertThat(missing.statusCode()).isEqualTo(404);
   }
+
+  @Test
+  void unknownEndpointGetsContractNotFoundShape() throws Exception {
+    HttpResponse<String> response = get("/invalid-endpoint");
+
+    assertThat(response.statusCode()).isEqualTo(404);
+    assertThat((String) JsonPath.read(response.body(), "$.code")).isEqualTo("NOT_FOUND");
+    assertThat((String) JsonPath.read(response.body(), "$.message"))
+        .isEqualTo("Endpoint not found.");
+  }
+
+  @Test
+  void unsupportedMethodGetsContractErrorShape() throws Exception {
+    HttpResponse<String> response = get("/finsim/v1/payments");
+
+    assertThat(response.statusCode()).isEqualTo(405);
+    assertThat((String) JsonPath.read(response.body(), "$.code")).isEqualTo("INVALID_REQUEST");
+  }
 }

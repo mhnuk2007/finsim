@@ -202,4 +202,47 @@ class BankServiceTest {
 
     assertThat(bank.balanceOf("ACC-1").add(bank.balanceOf("ACC-2"))).isEqualByComparingTo(before);
   }
+
+  @Test
+  void missingBlankOrOversizedReferenceIsABadRequest() {
+    for (String badRef : List.of("", "   ", "R".repeat(141))) {
+      PaymentLegRequest request =
+          new PaymentLegRequest(
+              "tx-ref-" + badRef.length(),
+              Direction.DEBIT,
+              "ACC-1",
+              new MoneyDto("1.00", "USD"),
+              badRef,
+              null,
+              "SYNTHETIC");
+      Outcome o = bank.applyLeg("key-ref-" + badRef.length(), request);
+      assertThat(o.status()).isEqualTo(400);
+      assertThat(code(o)).isEqualTo("INVALID_REQUEST");
+    }
+
+    PaymentLegRequest nullRef =
+        new PaymentLegRequest(
+            "tx-ref-null",
+            Direction.DEBIT,
+            "ACC-1",
+            new MoneyDto("1.00", "USD"),
+            null,
+            null,
+            "SYNTHETIC");
+    Outcome nullOutcome = bank.applyLeg("key-ref-null", nullRef);
+    assertThat(nullOutcome.status()).isEqualTo(400);
+    assertThat(code(nullOutcome)).isEqualTo("INVALID_REQUEST");
+  }
+
+  @Test
+  void invalidAmountFormatIsABadRequest() {
+    for (String badAmount : List.of("1.123456789", "1e3", "+10.00", "-1.00", ".50", "10.")) {
+      Outcome o =
+          bank.applyLeg(
+              "key-amt-" + badAmount,
+              leg("tx-amt-" + badAmount, Direction.CREDIT, "ACC-1", badAmount));
+      assertThat(o.status()).isEqualTo(400);
+      assertThat(code(o)).isEqualTo("INVALID_REQUEST");
+    }
+  }
 }
