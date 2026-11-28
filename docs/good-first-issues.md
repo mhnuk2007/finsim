@@ -11,7 +11,7 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 
 ## Filter by Label on GitHub
 
-- **[Browse all Good First Issues](https://github.com/mhnuk2007/finsim/labels/good%20first%20issue)** (beginner-friendly, single-module scope)
+- **[Browse all Good First Issues](https://github.com/mhnuk2007/finsim/labels/good-first-issue)** (beginner-friendly, single-module scope)
 - **[Browse all Help Wanted Issues](https://github.com/mhnuk2007/finsim/labels/help%20wanted)** (intermediate, multi-component, or cross-language)
 
 ---
@@ -33,6 +33,12 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 | **[#74](https://github.com/mhnuk2007/finsim/issues/74)** | Brand / Design | **Design official logo and visual identity for FinSim**: Create scalable vector (SVG) wordmark, icon-only mark, and dark/light variations. |
 | **[#98](https://github.com/mhnuk2007/finsim/issues/98)** *(Closed)* | `finsim-api` | ~~**`FaultRuleEntity.setRemainingCount()` bypasses injected `Clock`**~~ *(Completed in [#104](https://github.com/mhnuk2007/finsim/pull/104))*: Updated `FaultRuleEntity.setRemainingCount` to accept an explicit `Instant` derived from the injected application `Clock`, preserving virtual clock determinism and replayability under [#27](https://github.com/mhnuk2007/finsim/issues/27). |
 | **[#100](https://github.com/mhnuk2007/finsim/issues/100)** *(Closed)* | `finsim-registry` | ~~**`RegistryExceptionHandler` advice controller target**~~ *(Completed in [#104](https://github.com/mhnuk2007/finsim/pull/104))*: Pointed `basePackageClasses` in `RegistryExceptionHandler` to `{InstitutionController.class, NetworkController.class}` instead of self-referencing `RegistryExceptionHandler.class`. |
+| **[#195](https://github.com/mhnuk2007/finsim/issues/195)** | `finsim-cli` / Conformance | **Tighten JSON schema and error-shape assertions in `ParticipantVerifier` (`finsim verify`)**: Assert required `ApiErrorCode` / `ReasonCode` shapes, content types, and field constraints during 7-phase verification. |
+| **[#196](https://github.com/mhnuk2007/finsim/issues/196)** | `web` / React | **Render both `DEBIT` and `CREDIT` status/labels for self-transfers in `TopologyCanvas`**: Fix `TopologyCanvas.tsx` dropping destination status pills and edge labels on same-institution transfers. |
+| **[#198](https://github.com/mhnuk2007/finsim/issues/198)** | `web` / React | **Cockpit fault quick-toggle collisions, clear-all `404`s, trace errors, and view state sync**: Handle concurrent fault toggle targets, empty-rule `404` edge cases, and trace fetch failures cleanly in `web/`. |
+| **[#199](https://github.com/mhnuk2007/finsim/issues/199)** | `samples/bank-node` | **Fix Windows startup entry check and add `prestart` build step**: Replace fragile `import.meta.url` comparison in `samples/bank-node/src/server.ts` using normalized paths (`fileURLToPath` / `path.resolve`). |
+| **[#202](https://github.com/mhnuk2007/finsim/issues/202)** | Docs / DevOps | **Consolidate duplicate Docker Compose files and sync presentation deck, READMEs, and ADR 0001**: Unify root and `deploy/` Compose usage and update stale stack/issue notes across docs. |
+| **[#203](https://github.com/mhnuk2007/finsim/issues/203)** | CI / Tooling | **Align `verify.sh` and `verify.ps1` with full CI checks**: Cover multi-commit DCO sign-off and Spectral OpenAPI linting (`contract/finsim-v1.openapi.yaml`) locally. |
 
 ---
 
@@ -49,6 +55,12 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 | **[#33](https://github.com/mhnuk2007/finsim/issues/33)** | Samples / `finsim-sim` | **Sample ATM participant & partial-dispense simulation**: Model physical cash delivery states (`DISPENSED`, `PARTIALLY_DISPENSED`, `NOT_DISPENSED`) and automatic compensating credit adjustments (ADR 0002 under review in PR [#178](https://github.com/mhnuk2007/finsim/pull/178)). |
 | **[#134](https://github.com/mhnuk2007/finsim/issues/134)** | Next.js / Frontend | **Split Frontend Architecture — Marketing & Docs Hub (`site/`)**: Phase 1 (`web/` Simulation Cockpit) completed in [#135](https://github.com/mhnuk2007/finsim/pull/135); Phase 2 (`site/` Next.js landing page, SEO, and interactive guides) open for contribution. |
 | **[#179](https://github.com/mhnuk2007/finsim/issues/179)** | `web` / React | **Interactive ATM Partial-Dispense & Cassette Simulation in the Cockpit**: Add an interactive `atm` simulator tab, cassette inventory, and Demo/Live view model in `web/` (Phases 1–2 Demo Mode depend on [#175](https://github.com/mhnuk2007/finsim/issues/175); Phase 3 Live API waits on [#178](https://github.com/mhnuk2007/finsim/pull/178) acceptance and [#33](https://github.com/mhnuk2007/finsim/issues/33)). |
+| **[#189](https://github.com/mhnuk2007/finsim/issues/189)** | `finsim-api` / `finsim-sim` / `finsim-cli` | **Persist and expose stage targeting and `RESPONSE_LOST_AFTER_PROCESSING` on `/api/v1/faults`**: Store `stage` on fault rules, expose via HTTP/OpenAPI/CLI, and enforce stage-scoped matching in `TransferOrchestrator`. |
+| **[#194](https://github.com/mhnuk2007/finsim/issues/194)** | `finsim-registry` / `finsim-cli` | **Institution status updates (`PATCH /api/v1/institutions/{id}`) and member removal (`DELETE /api/v1/networks/{networkId}/members/{institutionId}`)**: Support suspending/reactivating institutions and removing network members via API and CLI (`milestone-2`). |
+| **[#197](https://github.com/mhnuk2007/finsim/issues/197)** | `web` / TypeScript | **Align `DemoEngine` transfer validation, unknown/closed account rejections, and seeded PRNG with `finsim/v1`**: Replace invented demo balances and align error/reason-code behavior in `web/src/mocks/demoEngine.ts`. |
+| **[#200](https://github.com/mhnuk2007/finsim/issues/200)** | `samples` / Conformance | **Normalize edge-case validation across Java, Python, Node, and Go banks and expand conformance checks**: Omit `null` `reasonCode` in Python, enforce ASCII digits/non-blank fields, normalize `405`/`415` JSON errors, configure Go server timeouts, and expand `06-validation.hurl`. |
+| **[#201](https://github.com/mhnuk2007/finsim/issues/201)** | `web` / `finsim-sim` | **Interactive Scenario Runner (`finsim/scenario/v1`) and Replay Diff inspector in the Cockpit**: Execute YAML/JSON scenario fixtures step-by-step and compare normalized replay traces (`milestone-2`). |
+| **[#205](https://github.com/mhnuk2007/finsim/issues/205)** | `finsim-registry` / `finsim-cli` | **Expose `POST /api/v1/networks` endpoint and CLI command for custom networks**: Surface `Registry.ensureNetwork` with natural-key `201`/`200`/`409` idempotency, `#177` `prod` guard awareness, and `finsim networks create` (`milestone-2`). |
 
 ---
 
@@ -130,8 +142,8 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 
 ---
 
-### Milestone 1 & Milestone 2 Roadmap Enhancements
-*Platform API, security, documentation, and CI enhancements (`#170`–`#177`).*
+### Milestone 1 & Milestone 2 Roadmap, Security & Core API Issues
+*Platform API, security, virtual clock, authorization, documentation, and CI work (`#170`–`#205`).*
 
 | Issue | Area | Description |
 |---|---|---|
@@ -142,6 +154,12 @@ To keep documentation from drifting, **the active [GitHub Issues](https://github
 | **[#174](https://github.com/mhnuk2007/finsim/issues/174)** | Documentation / Contract | **Canonical API Endpoint Catalogue (`docs/api-catalogue.md`)**: Authoritative index separating `/api/v1/*` Platform routes from `/finsim/v1/*` Participant routes and aligning M2/M3 naming. |
 | **[#175](https://github.com/mhnuk2007/finsim/issues/175)** | CI / `web` | **Web Simulation Cockpit CI workflow**: Add a dedicated `web` job to `.github/workflows/ci.yml` running `npm ci`, `typecheck`, Vitest, Vite production build, and Docker check. |
 | **[#177](https://github.com/mhnuk2007/finsim/issues/177)** | `finsim-api` / `finsim-registry` / Security | **Hosted `prod` stack mutating endpoint guard**: Restrict unauthenticated mutating `/api/v1/*` endpoints (institution registration, network membership, fault rules) in `prod`, add optional operator bearer token support, and document public-exposure boundaries. |
+| **[#188](https://github.com/mhnuk2007/finsim/issues/188)** | `finsim-api` / Security | **Block HTTP redirect SSRF bypass and unresolved DNS fail-open in `ParticipantClient`**: Disable/validate HTTP redirects and fail closed when DNS resolution fails (`UnknownHostException`). |
+| **[#190](https://github.com/mhnuk2007/finsim/issues/190)** | `finsim-api` / `finsim-cli` | **Preserve multi-transfer traces, honor `targetStep`, and harden `ScenarioHttpAdapter`**: Fix live scenario runner assertions, step-scoped fault targeting, and HTTP replay parity. |
+| **[#191](https://github.com/mhnuk2007/finsim/issues/191)** | `finsim-sim` | **Prevent `DiscreteVirtualClock.advanceTo` from overwriting callback `reset()` & fix amount equality**: Keep virtual clock resets deterministic inside callbacks and compare `BigDecimal` amounts cleanly in `InMemoryScenarioEnvironment` (`milestone-2`). |
+| **[#192](https://github.com/mhnuk2007/finsim/issues/192)** | `finsim-core` / `finsim-api` | **Unify API error codes (`BAD_REQUEST` vs `INVALID_REQUEST`), handle `405`/`415`, and fix concurrent `/resolve` error reporting**: Align HTTP error handling and concurrent `UNKNOWN` optimistic-locking responses (`milestone-1`). |
+| **[#193](https://github.com/mhnuk2007/finsim/issues/193)** | `finsim-api` / `finsim-cli` | **Expose atomic `DELETE /api/v1/faults` endpoint and `finsim fault clear` CLI command**: Clear all active fault rules atomically without per-rule deletion races (`milestone-1`). |
+| **[#204](https://github.com/mhnuk2007/finsim/issues/204)** | `finsim-core` / `finsim-api` / `finsim-sim` | **Card Authorization lifecycle (`authorize`, `capture`, `void`, `expiry`) & ADR 0004**: Design and implement the sibling `Authorization` aggregate, `/api/v1/authorizations` endpoints, ledger exposure, and `VirtualClock` expiry (`milestone-2`). |
 
 ## How to Contribute
 

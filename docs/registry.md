@@ -90,4 +90,4 @@ Institution URLs are attacker-controllable input, so they are validated by `Base
 
 ## Not built yet
 
-Removing members, per-institution credentials, and configurable schemes. (Participant contract verification is available via `finsim verify --url <url>`, closed #25; dynamic participant directory discovery is available via `GET /api/v1/networks/{networkId}/directory`, closed #31).
+Removing members and institution status updates (tracked in [#194](https://github.com/mhnuk2007/finsim/issues/194)), creating custom networks via `POST /api/v1/networks` (tracked in [#205](https://github.com/mhnuk2007/finsim/issues/205)), per-institution credentials, and configurable schemes. (Participant contract verification is available via `finsim verify --url <url>`, closed #25; dynamic participant directory discovery is available via `GET /api/v1/networks/{networkId}/directory`, closed #31).
